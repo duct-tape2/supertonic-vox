@@ -89,10 +89,14 @@ public sealed class RuntimePackVerifier
 
         var verified = await VerifyAsync(staged, cancellationToken).ConfigureAwait(false);
         EnsureHostCompatibility(verified.Manifest);
-        MakeTreeReadOnly(staged, verified.Manifest.EntryPoint);
-        await VerifyPrelaunchAsync(verified, cancellationToken).ConfigureAwait(false);
+        // Move first, then lock the tree: renaming a directory whose entries were already made
+        // read-only fails with EACCES on some macOS hosts (seen on GitHub macos runners), and the
+        // hashes were verified above, so locking the final location is equivalent.
         Directory.Move(staged, final);
-        return verified with { RootPath = final };
+        var activated = verified with { RootPath = final };
+        MakeTreeReadOnly(final, verified.Manifest.EntryPoint);
+        await VerifyPrelaunchAsync(activated, cancellationToken).ConfigureAwait(false);
+        return activated;
     }
 
     public async Task<VerifiedRuntimePack> VerifyAsync(
