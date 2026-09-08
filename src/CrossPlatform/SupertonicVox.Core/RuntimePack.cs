@@ -141,7 +141,7 @@ public sealed class RuntimePackVerifier
                     $"Runtime-pack directory is linked: {Path.GetRelativePath(root, directory.FullName)}");
         }
         var files = rootInfo.EnumerateFiles("*", SearchOption.AllDirectories)
-            .OrderBy(value => StablePathKey(Path.GetRelativePath(root, value.FullName)), StringComparer.Ordinal)
+            .OrderBy(value => StablePathKey(RelativeUnixPath(root, value.FullName)), StringComparer.Ordinal)
             .ToArray();
         if (files.Length != expected.Count + 1)
             throw new RuntimePackException("Runtime-pack file inventory count does not match the manifest.");
@@ -153,7 +153,7 @@ public sealed class RuntimePackVerifier
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var relative = NormalizeRelativePath(Path.GetRelativePath(root, file.FullName));
+            var relative = NormalizeRelativePath(RelativeUnixPath(root, file.FullName));
             if (string.Equals(relative, ManifestFileName, StringComparison.Ordinal)) continue;
             if (!expected.TryGetValue(relative, out var declared) || !actual.Add(relative))
                 throw new RuntimePackException($"Runtime-pack contains an unlisted file: {relative}");
@@ -386,6 +386,11 @@ public sealed class RuntimePackVerifier
         hash.AppendData(length);
         hash.AppendData(bytes);
     }
+
+    // Manifest paths are always "/"-separated; on Windows Path.GetRelativePath yields "\", which the
+    // safety check below rejects on purpose. Convert the on-disk relative path to the manifest form first.
+    private static string RelativeUnixPath(string root, string fullPath) =>
+        Path.GetRelativePath(root, fullPath).Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
 
     private static string NormalizeRelativePath(string value)
     {
