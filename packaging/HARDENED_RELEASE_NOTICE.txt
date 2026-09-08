@@ -1,0 +1,15 @@
+Supertonic + VoxCPM2 hardened candidate
+=======================================
+
+Build date: 2026-07-27
+Platform: Windows x64, CPU, .NET 10 LTS self-contained
+Status: unsigned; personal/internal restricted deployment
+
+The candidate adds authenticated loopback sidecars, child-process ownership,
+engine/model/session health fingerprinting, proxy blocking, request/response
+ceilings, full model hashing, rotating logs, atomic persistence and collision-safe
+WAV output.
+
+Read HANDOFF_DOCS\SECURITY_AUDIT.md and KNOWN_LIMITATIONS.md before deployment.
+The bundled Python trees contain open dependency advisories and are not approved
+for public or untrusted multi-user service exposure.

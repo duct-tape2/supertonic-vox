@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "target": "macos-arm64",
+  "minimumSystemVersion": "13.0",
+  "hashAlgorithm": "SHA-256",
+  "bundleIdentifier": "io.github.supertonicvox.desktop",
+  "identity": {
+    "status": "staging-placeholder",
+    "certificateKind": "Developer ID Application",
+    "leafCertificateSha256": null,
+    "subject": null,
+    "teamId": null,
+    "approvalId": null
+  },
+  "architecture": {
+    "mode": "arm64-only-after-normalization",
+    "acceptedInputSets": [
+      [
+        "arm64"
+      ],
+      [
+        "arm64",
+        "arm64e"
+      ],
+      [
+        "arm64",
+        "x86_64"
+      ],
+      [
+        "arm64",
+        "arm64e",
+        "x86_64"
+      ]
+    ],
+    "normalizationTool": "lipo -thin arm64",
+    "finalArchitectures": [
+      "arm64"
+    ]
+  },
+  "signing": {
+    "digestAlgorithm": "SHA-256",
+    "hardenedRuntime": true,
+    "secureTimestampRequired": true,
+    "signatureMetadataPaths": [
+      "Contents/_CodeSignature/CodeResources"
+    ],
+    "entitlementsPath": "packaging/macos/SupertonicVox.entitlements",
+    "entitlementsSha256": "388be301001eccb288edca1c9f0deb89285ef94bff6d26ab436275b82b41d1a0",
+    "allowedEntitlements": [
+      "com.apple.security.cs.allow-jit"
+    ],
+    "forbiddenEntitlements": [
+      "com.apple.security.cs.allow-dyld-environment-variables",
+      "com.apple.security.cs.allow-unsigned-executable-memory",
+      "com.apple.security.cs.disable-library-validation",
+      "com.apple.security.network.client",
+      "com.apple.security.network.server"
+    ]
+  },
+  "notarization": {
+    "appSubmissionFormat": "ditto-zip-keepParent",
+    "appStapledBeforeDmg": true,
+    "dualSubmissionRequired": true,
+    "acceptedStatus": "Accepted",
+    "dmgAssessmentContext": "context:primary-signature",
+    "stapleMutablePaths": [
+      "Contents/CodeResources"
+    ]
+  },
+  "userData": {
+    "installerOwnsUserData": false,
+    "preservePaths": [
+      "~/Documents/SupertonicVox",
+      "~/Library/Application Support/SupertonicVox"
+    ]
+  },
+  "releaseEligible": false,
+  "openGates": [
+    "apple-hardened-runtime",
+    "apple-notarization-and-stapling",
+    "authenticode-signing",
+    "dependency-license-attribution",
+    "developer-id-signing",
+    "macos-clean-machine-validation",
+    "msi-installer",
+    "production-catalog-trust-root",
+    "production-key-custody-and-rotation",
+    "real-engine-benchmarks",
+    "real-voxcpm2-runtime-packs",
+    "remote-ci-provenance",
+    "source-ownership-and-license",
+    "supertonic-model-redistribution",
+    "voxcpm2-model-redistribution",
+    "windows-clean-machine-validation",
+    "windows-publish-inventory-approval"
+  ]
+}

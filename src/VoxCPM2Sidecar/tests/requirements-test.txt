@@ -1,0 +1,9 @@
+fastapi==0.135.1
+httpx==0.28.1
+numpy==2.4.3
+psutil==5.9.8
+pydantic==2.12.3
+scipy==1.17.1
+soundfile==0.13.1
+starlette==0.52.1
+uvicorn==0.42.0

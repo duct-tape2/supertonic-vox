@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "default_profile_id": "vox_news_f",
+  "profiles": [
+    {
+      "id": "vox_news_f",
+      "label_ko": "뉴스 여성",
+      "description_ko": "명료하고 자신감 있는 표준 한국어 뉴스 앵커",
+      "control_text": "A professional Korean female news anchor, clear, confident, composed, with neutral pacing and precise standard Korean pronunciation"
+    },
+    {
+      "id": "vox_calm_f",
+      "label_ko": "차분한 여성 내레이션",
+      "description_ko": "부드럽고 안정적인 다큐멘터리·오디오북 내레이션",
+      "control_text": "A calm Korean female narrator, warm and gentle, steady breathing, relaxed pacing, with clear standard Korean pronunciation"
+    },
+    {
+      "id": "vox_emotive_f",
+      "label_ko": "감정 연기 여성",
+      "description_ko": "생동감 있고 섬세한 감정 표현을 갖춘 연기 음성",
+      "control_text": "An expressive Korean female voice actor, vivid and emotionally nuanced, dynamic but natural, with clear standard Korean pronunciation"
+    },
+    {
+      "id": "vox_trust_m",
+      "label_ko": "신뢰감 있는 남성",
+      "description_ko": "낮고 안정적이며 설득력 있는 남성 안내 음성",
+      "control_text": "A trustworthy Korean male presenter, mature, warm, steady and authoritative, with measured pacing and clear standard Korean pronunciation"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "requiredOpenGateIds": [
+    "apple-hardened-runtime",
+    "apple-notarization-and-stapling",
+    "authenticode-signing",
+    "dependency-license-attribution",
+    "developer-id-signing",
+    "macos-clean-machine-validation",
+    "msi-installer",
+    "production-catalog-trust-root",
+    "production-key-custody-and-rotation",
+    "real-engine-benchmarks",
+    "real-voxcpm2-runtime-packs",
+    "remote-ci-provenance",
+    "source-ownership-and-license",
+    "supertonic-model-redistribution",
+    "voxcpm2-model-redistribution",
+    "windows-clean-machine-validation",
+    "windows-publish-inventory-approval"
+  ]
+}

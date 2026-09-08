@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "target": "macos-arm64",
+  "status": "capture-required",
+  "hashAlgorithm": "SHA-256",
+  "approvedInventorySha256": null,
+  "bundleTarget": null,
+  "entries": []
+}

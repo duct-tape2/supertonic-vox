@@ -1,0 +1,14 @@
+bin/
+obj/
+artifacts/
+model-cache/
+*.wav
+*.onnx
+*.pth
+*.safetensors
+*.zip
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/

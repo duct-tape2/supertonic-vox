@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "engine": "voxcpm2",
+  "engine_version": "2.0.3",
+  "created_utc": "__SET_DURING_INSTALL__",
+  "runtime": {
+    "python": "3.12.13",
+    "torch": "2.10.0+cpu",
+    "torchaudio": "2.10.0+cpu",
+    "device": "cpu",
+    "optimize": false,
+    "offline": true,
+    "intra_op_threads": 12,
+    "inter_op_threads": 2
+  },
+  "model": {
+    "id": "OpenBMB/VoxCPM2",
+    "revision": "bffb3df5a29440629464e5e839f4d214c8714c3d",
+    "files": [
+      {
+        "path": "models/VoxCPM2/model.safetensors",
+        "size": 4580080592,
+        "sha256": "f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d"
+      },
+      {
+        "path": "models/VoxCPM2/audiovae.pth",
+        "size": 376951122,
+        "sha256": "94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1"
+      }
+    ]
+  },
+  "installed_files": "__REPLACE_WITH_SORTED_FILE_HASH_LIST_DURING_INSTALL__"
+}

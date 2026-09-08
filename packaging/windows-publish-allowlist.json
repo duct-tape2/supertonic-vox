@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "target": "win-x64",
+  "dotnetSdkVersion": "10.0.302",
+  "status": "capture-required",
+  "files": []
+}

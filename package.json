@@ -1,0 +1,10 @@
+{
+  "name": "supertonic-vox",
+  "version": "0.1.0",
+  "description": "Privacy-first local Korean TTS for Windows",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrub": "node scripts/scrub-check.mjs"
+  }
+}

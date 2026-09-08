@@ -1,0 +1,24 @@
+name: Scrub check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  scrub:
+    name: Privacy and credential check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@1e60f620b9541d910e70a7037911814986a757cd # v4.1.2
+        with:
+          node-version: "20"
+      - name: Run scrub-check
+        run: node scripts/scrub-check.mjs

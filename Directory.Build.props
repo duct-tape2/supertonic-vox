@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

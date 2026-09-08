@@ -1,0 +1,15 @@
+PRIVATE_USER_STATE
+==================
+
+This offline payload intentionally contains the current user state requested by
+the owner. It can include settings.json, SavedText.txt, pronunciation override
+files, Data, GeneratedAudio, VoiceSamples, runtime logs, imported reference WAV
+files and caches.
+
+Voice recordings are biometric/personal material. Scripts and logs may contain
+names, business information, paths and error details. Do not upload this payload
+or PRIVATE_USER_STATE_INDEX.json to an external AI, public cloud, ticket or chat
+unless the data owner has approved that transfer.
+
+The application does not encrypt these files at rest. Use an encrypted drive and
+restrict access during transport and storage.

@@ -1,0 +1,14 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <SuppressValidation>false</SuppressValidation>
+    <GeneratedComponentsFile Condition="'$(GeneratedComponentsFile)' == ''">GeneratedComponents.wxs</GeneratedComponentsFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="$(GeneratedComponentsFile)" />
+  </ItemGroup>
+</Project>

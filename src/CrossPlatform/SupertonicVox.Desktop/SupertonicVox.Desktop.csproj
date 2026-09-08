@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;osx-arm64</RuntimeIdentifiers>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>13</LangVersion>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <AssemblyName>SupertonicVox.Desktop</AssemblyName>
+    <RootNamespace>SupertonicVox.Desktop</RootNamespace>
+    <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
+    <CatalogAssetRoot Condition="'$(CatalogAssetRoot)' == ''">$(MSBuildProjectDirectory)/Assets</CatalogAssetRoot>
+    <CatalogProductionAssets Condition="'$(CatalogProductionAssets)' == ''">false</CatalogProductionAssets>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CatalogProductionAssets)' == 'true'">
+    <DefineConstants>$(DefineConstants);SVX_PRODUCTION_CATALOG_ASSETS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SupertonicVox.Core/SupertonicVox.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.json" />
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.signature.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.signature.json" />
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.trust.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.trust.json" />
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.bootstrap.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.bootstrap.json" />
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.trust-manifest.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.trust-manifest.json"
+                      Condition="Exists('$(CatalogAssetRoot)/engine-catalog.trust-manifest.json')" />
+    <EmbeddedResource Include="$(CatalogAssetRoot)/engine-catalog.trust-manifest.signature.json"
+                      LogicalName="SupertonicVox.Desktop.Assets.engine-catalog.trust-manifest.signature.json"
+                      Condition="Exists('$(CatalogAssetRoot)/engine-catalog.trust-manifest.signature.json')" />
+  </ItemGroup>
+
+  <Target Name="RequireProductionCatalogAssets" BeforeTargets="PrepareForBuild"
+          Condition="'$(CatalogProductionAssets)' == 'true'">
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.json')"
+           Text="Production catalog JSON is missing." />
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.signature.json')"
+           Text="Production catalog signature is missing." />
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.trust.json')"
+           Text="Production root trust document is missing." />
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.bootstrap.json')"
+           Text="Production root fingerprint bootstrap is missing." />
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.trust-manifest.json')"
+           Text="Production trust manifest is missing." />
+    <Error Condition="!Exists('$(CatalogAssetRoot)/engine-catalog.trust-manifest.signature.json')"
+           Text="Production trust-manifest signature is missing." />
+  </Target>
+</Project>

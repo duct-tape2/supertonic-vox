@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "target": "win-x64",
+  "wixSdkVersion": "7.0.0",
+  "hashAlgorithm": "SHA-256",
+  "productCanonicalUri": "https://supertonicvox.example.invalid/windows",
+  "identity": {
+    "status": "staging-placeholder",
+    "upgradeCode": "192DEAC4-89A6-5EB6-BF21-0E2F0AF94A5A",
+    "stagingUpgradeCode": "192DEAC4-89A6-5EB6-BF21-0E2F0AF94A5A",
+    "manufacturer": "SupertonicVox STAGING ONLY",
+    "stagingManufacturer": "SupertonicVox STAGING ONLY",
+    "ownerApprovalId": null
+  },
+  "package": {
+    "name": "SupertonicVox",
+    "platform": "x64",
+    "scope": "perMachine",
+    "installFolder": "ProgramFiles64Folder\\SupertonicVox",
+    "executable": "SupertonicVox.Desktop.exe",
+    "startMenuShortcut": true,
+    "allowDowngrades": false,
+    "allowSameVersionUpgrades": false
+  },
+  "signing": {
+    "mode": "certificate-store-or-hsm",
+    "digestAlgorithm": "SHA-256",
+    "timestampDigestAlgorithm": "SHA-256",
+    "timestampUrl": "https://timestamp.digicert.com"
+  },
+  "requiredPayloadSubset": [
+    "Licenses/Supertonic-3_OpenRAIL-M.txt",
+    "Licenses/Supertonic-v3.0.0_MIT.txt",
+    "Models/Supertonic3/onnx/duration_predictor.onnx",
+    "Models/Supertonic3/onnx/text_encoder.onnx",
+    "Models/Supertonic3/onnx/tts.json",
+    "Models/Supertonic3/onnx/unicode_indexer.json",
+    "Models/Supertonic3/onnx/vector_estimator.onnx",
+    "Models/Supertonic3/onnx/vocoder.onnx",
+    "Models/Supertonic3/voice_styles/M1.json",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "userData": {
+    "installerOwnsUserData": false,
+    "preservePaths": [
+      "%LOCALAPPDATA%\\SupertonicVox",
+      "%USERPROFILE%\\Documents\\SupertonicVox"
+    ]
+  },
+  "releaseEligible": false,
+  "openGates": [
+    "apple-hardened-runtime",
+    "apple-notarization-and-stapling",
+    "authenticode-signing",
+    "dependency-license-attribution",
+    "developer-id-signing",
+    "macos-clean-machine-validation",
+    "msi-installer",
+    "production-catalog-trust-root",
+    "production-key-custody-and-rotation",
+    "real-engine-benchmarks",
+    "real-voxcpm2-runtime-packs",
+    "remote-ci-provenance",
+    "source-ownership-and-license",
+    "supertonic-model-redistribution",
+    "voxcpm2-model-redistribution",
+    "windows-clean-machine-validation",
+    "windows-publish-inventory-approval"
+  ]
+}

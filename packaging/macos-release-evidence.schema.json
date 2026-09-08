@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonicvox.example.invalid/schema/macos-release-evidence-v2.json",
+  "title": "SupertonicVox macOS signed-candidate evidence v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "releaseEligible",
+    "sourceCommit",
+    "packageVersion",
+    "contractSha256",
+    "signingPolicySha256",
+    "identityMode",
+    "preNormalizationInventory",
+    "normalizationDecisions",
+    "normalizedInventory",
+    "signingDecisions",
+    "signedInventory",
+    "stapledInventory",
+    "appStages",
+    "dmgStages",
+    "signers",
+    "entitlements",
+    "notarization",
+    "verifications",
+    "privacyEvidence",
+    "externalApprovals",
+    "toolchain",
+    "nativeChecks",
+    "openGates"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "releaseEligible": { "const": false },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "packageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "contractSha256": { "$ref": "#/$defs/sha256" },
+    "signingPolicySha256": { "$ref": "#/$defs/sha256" },
+    "identityMode": { "const": "owner-approved" },
+    "preNormalizationInventory": { "$ref": "#/$defs/inventory" },
+    "normalizationDecisions": { "type": "array", "minItems": 1 },
+    "normalizedInventory": { "$ref": "#/$defs/inventory" },
+    "signingDecisions": { "type": "array", "minItems": 1 },
+    "signedInventory": { "$ref": "#/$defs/inventory" },
+    "stapledInventory": { "$ref": "#/$defs/inventory" },
+    "appStages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normalizedInventorySha256",
+        "signedInventorySha256",
+        "submissionZip",
+        "stapledInventorySha256"
+      ],
+      "properties": {
+        "normalizedInventorySha256": { "$ref": "#/$defs/sha256" },
+        "signedInventorySha256": { "$ref": "#/$defs/sha256" },
+        "submissionZip": { "$ref": "#/$defs/fileIdentity" },
+        "stapledInventorySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "dmgStages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unsigned", "signed", "stapled"],
+      "properties": {
+        "unsigned": { "$ref": "#/$defs/fileIdentity" },
+        "signed": { "$ref": "#/$defs/fileIdentity" },
+        "stapled": { "$ref": "#/$defs/fileIdentity" }
+      }
+    },
+    "signers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "dmg"],
+      "properties": {
+        "app": { "type": "object" },
+        "dmg": { "type": "object" }
+      }
+    },
+    "entitlements": { "type": "object" },
+    "notarization": { "type": "object" },
+    "verifications": { "type": "object" },
+    "privacyEvidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/fileIdentity" }
+    },
+    "externalApprovals": { "type": "object" },
+    "toolchain": { "type": "object" },
+    "nativeChecks": { "type": "object" },
+    "openGates": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256", "sizeBytes"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "target", "hashAlgorithm", "files", "inventorySha256"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "target": { "const": "macos-arm64" },
+        "hashAlgorithm": { "const": "SHA-256" },
+        "files": { "type": "array", "minItems": 1 },
+        "inventorySha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

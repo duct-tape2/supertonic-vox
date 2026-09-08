@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "gateContractSha256": "37d9515f8a9631286747e1d558530410b8fb0967b6319c095b81a24c8fa71600",
+  "mappings": [
+    {
+      "gateId": "apple-hardened-runtime",
+      "ownerStep": "MAC_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/apple-hardened-runtime.json",
+      "verifierId": "macos-release-contract"
+    },
+    {
+      "gateId": "apple-notarization-and-stapling",
+      "ownerStep": "MAC_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/apple-notarization-and-stapling.json",
+      "verifierId": "macos-release-contract"
+    },
+    {
+      "gateId": "authenticode-signing",
+      "ownerStep": "WINDOWS_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/authenticode-signing.json",
+      "verifierId": "windows-msi-contract"
+    },
+    {
+      "gateId": "dependency-license-attribution",
+      "ownerStep": "LEGAL_APPROVAL",
+      "evidenceArtifact": "evidence/gates/dependency-license-attribution.json",
+      "verifierId": "owner-approval-contract"
+    },
+    {
+      "gateId": "developer-id-signing",
+      "ownerStep": "MAC_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/developer-id-signing.json",
+      "verifierId": "macos-release-contract"
+    },
+    {
+      "gateId": "macos-clean-machine-validation",
+      "ownerStep": "MAC_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/macos-clean-machine-validation.json",
+      "verifierId": "macos-clean-machine-contract"
+    },
+    {
+      "gateId": "msi-installer",
+      "ownerStep": "WINDOWS_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/msi-installer.json",
+      "verifierId": "windows-msi-contract"
+    },
+    {
+      "gateId": "production-catalog-trust-root",
+      "ownerStep": "TRUST_AND_RUNTIME_ARTIFACTS",
+      "evidenceArtifact": "evidence/gates/production-catalog-trust-root.json",
+      "verifierId": "catalog-release-verifier"
+    },
+    {
+      "gateId": "production-key-custody-and-rotation",
+      "ownerStep": "TRUST_AND_RUNTIME_ARTIFACTS",
+      "evidenceArtifact": "evidence/gates/production-key-custody-and-rotation.json",
+      "verifierId": "key-custody-contract"
+    },
+    {
+      "gateId": "real-engine-benchmarks",
+      "ownerStep": "REAL_ENGINE_BENCHMARKS",
+      "evidenceArtifact": "evidence/gates/real-engine-benchmarks.json",
+      "verifierId": "native-benchmark-contract"
+    },
+    {
+      "gateId": "real-voxcpm2-runtime-packs",
+      "ownerStep": "TRUST_AND_RUNTIME_ARTIFACTS",
+      "evidenceArtifact": "evidence/gates/real-voxcpm2-runtime-packs.json",
+      "verifierId": "runtime-pack-release-verifier"
+    },
+    {
+      "gateId": "remote-ci-provenance",
+      "ownerStep": "REMOTE_PROVENANCE",
+      "evidenceArtifact": "evidence/gates/remote-ci-provenance.json",
+      "verifierId": "release-provenance-contract"
+    },
+    {
+      "gateId": "source-ownership-and-license",
+      "ownerStep": "LEGAL_APPROVAL",
+      "evidenceArtifact": "evidence/gates/source-ownership-and-license.json",
+      "verifierId": "owner-approval-contract"
+    },
+    {
+      "gateId": "supertonic-model-redistribution",
+      "ownerStep": "LEGAL_APPROVAL",
+      "evidenceArtifact": "evidence/gates/supertonic-model-redistribution.json",
+      "verifierId": "owner-approval-contract"
+    },
+    {
+      "gateId": "voxcpm2-model-redistribution",
+      "ownerStep": "LEGAL_APPROVAL",
+      "evidenceArtifact": "evidence/gates/voxcpm2-model-redistribution.json",
+      "verifierId": "owner-approval-contract"
+    },
+    {
+      "gateId": "windows-clean-machine-validation",
+      "ownerStep": "WINDOWS_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/windows-clean-machine-validation.json",
+      "verifierId": "windows-clean-machine-contract"
+    },
+    {
+      "gateId": "windows-publish-inventory-approval",
+      "ownerStep": "WINDOWS_NATIVE_RELEASE",
+      "evidenceArtifact": "evidence/gates/windows-publish-inventory-approval.json",
+      "verifierId": "windows-msi-contract"
+    }
+  ],
+  "reviewRequirements": [
+    {
+      "reviewId": "fable-readiness",
+      "evidenceArtifact": "evidence/reviews/fable-readiness.json",
+      "allowedOutcomes": [
+        "pass"
+      ]
+    },
+    {
+      "reviewId": "gpt-5.6-pro-web",
+      "evidenceArtifact": "evidence/reviews/gpt-5.6-pro-web.json",
+      "allowedOutcomes": [
+        "owner-approved-waiver",
+        "pass"
+      ]
+    },
+    {
+      "reviewId": "terra-code",
+      "evidenceArtifact": "evidence/reviews/terra-code.json",
+      "allowedOutcomes": [
+        "pass"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "target": "win-x64",
+  "status": "capture-required",
+  "hashAlgorithm": "SHA-256",
+  "approvedInventorySha256": null,
+  "ownerCertificate": null,
+  "entries": []
+}

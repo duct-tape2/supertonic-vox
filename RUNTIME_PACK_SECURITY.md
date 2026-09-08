@@ -1,0 +1,37 @@
+# Optional runtime-pack security contract
+
+Optional engines are never discovered by searching GitHub at runtime. A pack can become runnable only after its catalog artifact has passed signature, consent, origin, size, and SHA-256 checks and the extracted pack has passed the local contract below. The repository currently contains development-only catalog trust material; production catalog trust remains a release gate.
+
+## Immutable pack
+
+- `runtime-pack.json` strictly binds engine/version/model revision, protocol, platform, architecture, backend, entrypoint, static launch arguments, prelaunch verification paths, and every file size/SHA-256.
+- The strict manifest read remains bounded at 8 MiB. This value is based on the measured 39,921-file legacy inventory (6,105,338 bytes when compacted into the v2 schema); the 12.6 MiB legacy pretty manifest remains rejected.
+- The manifest itself must be a regular single-link file. Its link count is checked around the bounded read, and its read-only state, SHA-256, file type, and single-link identity are checked again immediately before launch.
+- Unknown JSON fields, numeric enum values, unsafe or ambiguous Unicode paths, case collisions, symlinks, reparse points, hardlinks, missing or unlisted files, and private or mutable directories fail closed.
+- Listed zero-byte regular files are permitted because the measured Python payload contains 1,065 legitimate empty package markers. They remain explicit single-link inventory entries with size 0 and SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; critical sidecar/model/license inputs must be nonempty.
+- Staging uses a sibling `.partial` directory. Verification succeeds before the tree is made read-only and atomically renamed to a new versioned final directory.
+- Distribution uses the strict `UstarV1` archive profile, not a generic ZIP/tar extractor. Only sorted regular files are accepted; `runtime-pack.json` must be first; USTAR headers, deterministic mode/owner/time fields, checksums, declared sizes, zero padding, exactly two terminal blocks and EOF are checked. Links, extensions, duplicate/case-colliding paths, traversal, non-ASCII ambiguous paths, bombs and trailers fail before activation.
+- `RuntimePackManager` persists only relative engine/fingerprint roots, re-verifies active packs at startup, binds them back to the current signed catalog, installs side-by-side, selects only a benchmarked execution fingerprint, and stops the owned provider before update or uninstall. Interrupted extraction and deletion tombstones are recovered under the cross-process state lock; invalid packs remain removable without following links or changing hard-linked external files.
+- The complete declared file inventory is type/link/size/SHA-256 verified again before each process start and must still match the activation fingerprint. Every file must remain read-only; the smaller critical prelaunch list is then hashed once more immediately before process creation. Unix link counts are inspected in bounded `stat` batches so a 39,921-file Python pack does not require one helper process per file.
+- Logs, cache, references, generated audio, and user configuration live in an owner-only application-data directory outside the immutable pack.
+- The VoxCPM2 builder parses every exact `name==version` entry in `requirements.lock` and requires a one-to-one match with installed `.dist-info/METADATA`; missing, extra, duplicate, malformed or version-mismatched distributions block the pack before activation.
+
+## Owned sidecar protocol v2
+
+The parent creates a fresh bearer token, session secret, nonce, and session ID for every child. Secrets are passed only in the child environment and are never command-line arguments, stdout, logs, or release evidence.
+
+The child binds an operating-system-selected IPv4 loopback port and emits one bounded JSON handshake. Its domain-separated HMAC-SHA256 binds the schema/protocol, parent PID/start identity, session ID, listener address, owned child PID, actual port, engine/model/backend identity, and nonce. The parent compares every value with independently generated or observed state.
+
+The reported listener must then pass three fail-closed ownership checkpoints: immediately before bootstrap, immediately before the first bearer request, and immediately after its response. Windows uses the native PID-bearing TCP listener table; macOS uses the fixed system `lsof` executable with bounded output and strict PID/address/port parsing. Unsupported, missing, ambiguous, or mismatched ownership kills the owned process and invalidates its token.
+
+Before any bearer is transmitted, the parent sends only a fresh 32-byte random challenge to `/v1/bootstrap-challenge`. A compliant listener must return a second domain-separated HMAC over the full handshake identity and challenge. The endpoint accepts strict JSON and exact challenge size, permits at most three attempts, succeeds once, and then disables. HTTP proxying, redirects, and decompression are disabled throughout. A very small race can still exist between operating-system observations; the listener proof, bracketed owner checks, mandatory session/PID health response, immediate token zeroization, and process-tree termination are the compensating controls.
+
+Health then binds the same session, child PID, engine/version/model/backend identity. Requests and responses are bounded. VoxCPM2 output must be a valid 48 kHz mono PCM16 WAV. Timeout, cancellation, protocol mismatch, invalid WAV, or disposal kills only the owned process tree and removes the secret-free process-state record.
+
+The protocol also supplies parent PID/start identity so a compliant sidecar exits when its parent disappears. The .NET tick value remains bound exactly in the handshake; the Python watcher compares that value with `psutil==5.9.8` at a documented whole-second boundary so float conversion cannot kill a healthy parent spuriously. Startup cleanup kills a stale process only when its PID, start identity, executable path, and pack fingerprint all match the owner-only state record.
+
+## Current release status
+
+This repository implements the pack/host/provider foundation, strict deterministic archive packager, persisted desktop install/update/rollback/uninstall manager, package-free .NET protocol fixture, and a real-inference Python protocol-v2 server source (`server_v2.py`). The cross-language HMAC vectors, single-use bootstrap, Bearer gate, dynamic listener, parent watcher, closed health identity, request/WAV bounds and deterministic pack/archive builders have platform-independent tests. `FakeVoxSidecar` is still reference-only. No production runtime pack or model weight is repository-tracked or advertised. Protocol-v1 packs remain incompatible and fail closed; the separate `server.py` exists only to preserve the recovered WinForms candidate.
+
+Real VoxCPM2 availability still requires separately built and reviewed Windows/macOS runtime packs, license approval, signed catalog artifacts, real CPU/CUDA/MPS benchmarks, dependency scanning, and clean-machine tests. Follow `VOXCPM2_RUNTIME_PACK_RELEASE.md`; source-level protocol success does not close the canonical `real-voxcpm2-runtime-packs` gate. The local read-only bit is not a defense against the same account or an administrator deliberately changing permissions; signed artifact provenance and operating-system code signing remain mandatory release controls.

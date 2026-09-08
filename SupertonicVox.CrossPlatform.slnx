@@ -1,0 +1,11 @@
+<Solution>
+  <Project Path="src/CrossPlatform/SupertonicVox.Core/SupertonicVox.Core.csproj" />
+  <Project Path="src/CrossPlatform/SupertonicVox.Desktop/SupertonicVox.Desktop.csproj" />
+  <Project Path="tests/SupertonicVox.Core.Tests/SupertonicVox.Core.Tests.csproj" />
+  <Project Path="tools/SupertonicSmoke/SupertonicSmoke.csproj" />
+  <Project Path="tools/DevelopmentCatalogSigner/DevelopmentCatalogSigner.csproj" />
+  <Project Path="tools/CatalogReleaseVerifier/CatalogReleaseVerifier.csproj" />
+  <Project Path="tools/FakeVoxSidecar/FakeVoxSidecar.csproj" />
+  <Project Path="tools/DesktopSmoke/DesktopSmoke.csproj" />
+  <Project Path="tools/VoxRuntimePackSmoke/VoxRuntimePackSmoke.csproj" />
+</Solution>

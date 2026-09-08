@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "model": "OpenBMB VoxCPM2",
+  "verified_at": "2026-07-14T12:00:00+09:00",
+  "hugging_face": {
+    "repository": "openbmb/VoxCPM2",
+    "revision": "bffb3df5a29440629464e5e839f4d214c8714c3d",
+    "metadata_method": "Authenticated HTTPS HEAD to huggingface.co",
+    "large_file_transport": "Short-lived Location URL on cas-bridge.xethub.hf.co",
+    "signed_url_lifetime_observed_seconds": 3600
+  },
+  "modelscope": {
+    "repository": "OpenBMB/VoxCPM2",
+    "revision": "04123d1676da3fd7e1f2d4ed847408950c9cf26d",
+    "verified_dns_name": "www.modelscope.cn",
+    "verified_ip_on_2026_07_14": "47.251.62.57",
+    "transport_note": "Corporate WebKeeper blocks domain GET. The installer resolves the official DNS name, requests the IP without a Host override, and treats the response as untrusted until pinned size and SHA-256 verification succeeds."
+  },
+  "runtime_files": [
+    {
+      "path": "config.json",
+      "size": 4336,
+      "sha256": "405f0dcd92f7feba6011ed4eac5c8d4f74cba9712f07fd5cfa3063bbdd95402c",
+      "hf_git_blob_etag": "792f1c223ed607f9e508c0a0deb15dd9532483be"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "size": 1632,
+      "sha256": "068594063e37662c02b21acf42ebb334ef6a74fb810e68a2368f88f08351de76",
+      "hf_git_blob_etag": "8619dda6f3eb6d60d0a1bb274820054e46f41699"
+    },
+    {
+      "path": "tokenization_voxcpm2.py",
+      "size": 2895,
+      "sha256": "84489ea32b6ee0cae22ed5480cacb6df85c46624c3119be9a2021c3649a12729",
+      "hf_git_blob_etag": "e7d768677298d058fa6ef8b160e3ca4430997fad"
+    },
+    {
+      "path": "tokenizer.json",
+      "size": 3676772,
+      "sha256": "f8984687e4a92a3503d521396d454b7d68e9fdaab2a0288eb3536c7c1aa4bc20",
+      "hf_git_blob_etag": "41a5c2a8dba4058dd1ad73fb898abf5e4f64f0f9"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "size": 5059,
+      "sha256": "e78a3ebb48a0b9437efd1823b6b726c823da89e49dd8bcc90c02419d9baa772b",
+      "hf_git_blob_etag": "fecf4cdae73b57053cac2ad34c67febbe4e4f08b"
+    },
+    {
+      "path": "audiovae.pth",
+      "size": 376951122,
+      "sha256": "94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1",
+      "hf_linked_etag": "94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1",
+      "hf_xet_hash": "f9ecfd88c9471d9574719d7996d1ef0da1db65ec988cfc9f933f4aa99f2de4bb"
+    },
+    {
+      "path": "model.safetensors",
+      "size": 4580080592,
+      "sha256": "f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d",
+      "hf_linked_etag": "f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d",
+      "hf_xet_hash": "45afd9afa29b02b0db6d0025d3849d2ef1e6f067c0d77e4b6af74cfc139fc622"
+    }
+  ],
+  "integrity_chain": [
+    "Every runtime file size and SHA-256 was read from the pinned ModelScope revision.",
+    "Every small runtime file was downloaded into memory and its Git blob SHA-1 matched the X-Linked-ETag returned by the pinned Hugging Face revision.",
+    "Both large file SHA-256 values matched the X-Linked-ETag returned by the pinned Hugging Face revision.",
+    "The installer rechecks the Hugging Face revision and ETag before transfer, then checks local size and SHA-256 before atomic promotion."
+  ],
+  "network_tests": {
+    "modelscope_large_range_bytes": 1048576,
+    "modelscope_observed_bytes_per_second_range": [
+      308786,
+      346519
+    ],
+    "hf_cas_test_range_bytes": 67108864,
+    "hf_cas_observed_bytes_per_second": 4613265,
+    "hf_cas_range_status": 206,
+    "writes_during_tests": "NUL or in-memory only"
+  },
+  "excluded_repository_files": [
+    {
+      "path": "README.md",
+      "reason": "Documentation only; not required by VoxCPM2.from_pretrained."
+    },
+    {
+      "path": ".gitattributes",
+      "reason": "Git transport metadata only; the ModelScope and Hugging Face copies differ and it is not used at runtime."
+    }
+  ]
+}

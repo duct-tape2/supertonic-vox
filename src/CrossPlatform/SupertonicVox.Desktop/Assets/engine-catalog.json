@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "sequence": 2,
+  "createdUtc": "2026-07-28T08:30:00+00:00",
+  "trustRootVersion": "development-2026-07-28-v2",
+  "developmentOnly": true,
+  "engines": [
+    {
+      "id": "supertonic-3",
+      "displayName": "Supertonic 3",
+      "version": "3.0.0",
+      "modelRevision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
+      "codeLicense": "MIT",
+      "modelLicense": "OpenRAIL-M",
+      "koreanQualityScore": 86,
+      "isBundled": true,
+      "downloadBytes": 0,
+      "minimumMemoryBytes": 4294967296,
+      "minimumFreeDiskBytes": 1073741824,
+      "minimumGpuMemoryBytes": 0,
+      "features": "GeneralTts",
+      "platforms": ["Windows", "MacOS"],
+      "architectures": ["X64", "Arm64"],
+      "backends": ["OnnxCpu"],
+      "artifacts": [
+        {
+          "name": "duration_predictor.onnx",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/duration_predictor.onnx",
+          "sizeBytes": 3700147,
+          "sha256": "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "text_encoder.onnx",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/text_encoder.onnx",
+          "sizeBytes": 36416150,
+          "sha256": "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "vector_estimator.onnx",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/vector_estimator.onnx",
+          "sizeBytes": 256534781,
+          "sha256": "883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "vocoder.onnx",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/vocoder.onnx",
+          "sizeBytes": 101424195,
+          "sha256": "085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "tts.json",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/tts.json",
+          "sizeBytes": 8253,
+          "sha256": "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "unicode_indexer.json",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/unicode_indexer.json",
+          "sizeBytes": 277676,
+          "sha256": "9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        },
+        {
+          "name": "M1.json",
+          "downloadUri": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M1.json",
+          "sizeBytes": 291748,
+          "sha256": "e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b",
+          "platforms": ["Windows", "MacOS"],
+          "architectures": ["X64", "Arm64"],
+          "backends": ["OnnxCpu"]
+        }
+      ]
+    },
+    {
+      "id": "voxcpm2",
+      "displayName": "VoxCPM2",
+      "version": "catalog-preview",
+      "modelRevision": "upstream-pin-pending",
+      "codeLicense": "REVIEW-PENDING",
+      "modelLicense": "REVIEW-PENDING",
+      "koreanQualityScore": 78,
+      "isBundled": false,
+      "downloadBytes": 4939212390,
+      "minimumMemoryBytes": 17179869184,
+      "minimumFreeDiskBytes": 10737418240,
+      "minimumGpuMemoryBytes": 8589934592,
+      "features": "GeneralTts, VoiceDesign, VoiceCloning, ReferenceAudio",
+      "platforms": ["Windows", "MacOS"],
+      "architectures": ["X64", "Arm64"],
+      "backends": ["Cuda", "Mps", "Cpu"],
+      "artifacts": []
+    },
+    {
+      "id": "melotts-ko",
+      "displayName": "MeloTTS Korean",
+      "version": "catalog-preview",
+      "modelRevision": "upstream-pin-pending",
+      "codeLicense": "REVIEW-PENDING",
+      "modelLicense": "REVIEW-PENDING",
+      "koreanQualityScore": 72,
+      "isBundled": false,
+      "downloadBytes": 314572800,
+      "minimumMemoryBytes": 4294967296,
+      "minimumFreeDiskBytes": 2147483648,
+      "minimumGpuMemoryBytes": 0,
+      "features": "GeneralTts",
+      "platforms": ["Windows", "MacOS"],
+      "architectures": ["X64", "Arm64"],
+      "backends": ["Cpu", "Mps"],
+      "artifacts": []
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SupertonicVox.Desktop"
+        x:Class="SupertonicVox.Desktop.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Supertonic + Vox — Local TTS"
+        Width="1080" Height="760" MinWidth="860" MinHeight="640"
+        Background="#0E0E13">
+  <ScrollViewer>
+    <Grid Margin="32" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="20">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="5">
+          <TextBlock Text="LOCAL TTS / PRIVATE BY DEFAULT" Foreground="#9C8CFF" FontSize="12" FontWeight="SemiBold" />
+          <TextBlock Text="내 PC에 맞는 음성을 선택합니다" FontSize="30" FontWeight="Bold" />
+          <TextBlock Text="원고와 음성은 외부로 전송하지 않습니다. 시작 분석도 완전 오프라인입니다." Foreground="#A9A8B3" FontSize="14" />
+        </StackPanel>
+        <Border Grid.Column="1" Classes="card" Padding="14,10" VerticalAlignment="Top">
+          <TextBlock Text="{Binding Status}" Foreground="#C8C1FF" />
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="1" Classes="card">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+          <Border Width="48" Height="48" CornerRadius="24" Background="#28203F">
+            <TextBlock Text="PC" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="#B9AAFF" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="5">
+            <TextBlock Text="감지된 하드웨어" FontWeight="SemiBold" FontSize="16" />
+            <TextBlock Text="{Binding HardwareSummary}" Foreground="#A9A8B3" TextWrapping="Wrap" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="2" Classes="card" BorderBrush="#5545A3">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+          <StackPanel Spacing="7">
+            <TextBlock Text="현재 추천" Foreground="#9C8CFF" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding RecommendationTitle}" FontSize="24" FontWeight="Bold" />
+            <TextBlock Text="{Binding RecommendationSummary}" Foreground="#B6B4C1" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="8">
+            <ComboBox Width="230" ItemsSource="{Binding EngineChoices}" SelectedItem="{Binding SelectedEngineChoice}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:EngineChoiceViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="선택 적용" Command="{Binding ApplySelectionCommand}" />
+              <Button Classes="primary" Content="다시 자동 선택" Command="{Binding AutoSelectCommand}" />
+            </StackPanel>
+            <TextBlock Text="{Binding EngineActionSummary}" MaxWidth="360"
+                       Foreground="#A9A8B3" TextWrapping="Wrap" TextAlignment="Right" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Classes="primary" Content="설치 / 업데이트" Command="{Binding InstallEngineCommand}" />
+              <Button Content="런타임 삭제" Command="{Binding UninstallEngineCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="12">
+        <ItemsControl Grid.ColumnSpan="3" ItemsSource="{Binding EngineCards}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:EngineCardViewModel">
+              <Border Classes="card" Margin="0,0,12,0">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="17" />
+                  <TextBlock Text="{Binding Availability}" Foreground="#9C8CFF" />
+                  <TextBlock Text="{Binding Quality}" Foreground="#B6B4C1" />
+                  <TextBlock Text="{Binding Speed}" Foreground="#B6B4C1" />
+                  <TextBlock Text="{Binding Size}" Foreground="#B6B4C1" />
+                  <TextBlock Text="{Binding Features}" Foreground="#B6B4C1" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <Border Grid.Row="4" Classes="card" VerticalAlignment="Top">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <StackPanel Spacing="5">
+              <TextBlock Text="한국어 음성 만들기" FontSize="18" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding ActiveEngineSummary}"
+                         Foreground="#A9A8B3" TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox Grid.Column="1" Width="130" ItemsSource="{Binding VoiceIds}"
+                      SelectedItem="{Binding SelectedVoiceId}" />
+          </Grid>
+
+          <TextBox Text="{Binding SynthesisText}"
+                   AcceptsReturn="True" TextWrapping="Wrap" MinHeight="125"
+                   PlaceholderText="한국어 원고를 입력하세요" MaxLength="2000" />
+
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding SynthesisStatus}" Foreground="#C8C1FF" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding SecuritySummary}" Foreground="#7FD7AD" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Content="취소" Command="{Binding CancelSynthesisCommand}" />
+              <Button Classes="primary" Content="음성 만들기" Command="{Binding SynthesizeCommand}" />
+              <Button Content="재생" Command="{Binding PlayCommand}" />
+              <Button Content="저장" Command="{Binding SaveCommand}" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </ScrollViewer>
+</Window>
