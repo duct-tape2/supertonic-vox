@@ -1,0 +1,107 @@
+name: Windows MSI release validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Fail-closed Windows MSI operation"
+        required: true
+        type: choice
+        options:
+          - capture-signing-policy
+          - staging-msi
+          - production-msi
+      first_release:
+        description: "No prior signed MSI exists"
+        required: true
+        default: true
+        type: boolean
+      first_production_catalog:
+        description: "No prior production catalog verifier report exists"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-production-release
+  cancel-in-progress: false
+
+jobs:
+  validate-msi:
+    name: Protected Windows x64 MSI validation
+    runs-on: [self-hosted, windows, x64, supertonic-release]
+    environment: production-release
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 10.0.302
+          cache: true
+          cache-dependency-path: |
+            .config/dotnet-tools.json
+            src/CrossPlatform/**/packages.lock.json
+            tests/SupertonicVox.Core.Tests/packages.lock.json
+            tools/**/packages.lock.json
+      - name: Validate installer contracts and negative controls
+        shell: powershell
+        run: |
+          python tools/windows_msi_contract.py validate-contract
+          python tools/windows_msi_contract.py validate-policy
+          python -m unittest tools/test_windows_msi_contract.py -v
+      - name: Capture complete payload signing-policy candidate
+        if: inputs.mode == 'capture-signing-policy'
+        shell: powershell
+        run: >-
+          ./packaging/build-windows-msi.ps1
+          -CaptureSigningPolicy
+          -ModelCache "${{ vars.SVX_WINDOWS_MODEL_CACHE }}"
+          -Output "${{ vars.SVX_RELEASE_EVIDENCE_ROOT }}\${{ github.sha }}\signing-policy"
+      - name: Build staging-only unsigned MSI
+        if: inputs.mode == 'staging-msi'
+        shell: powershell
+        run: >-
+          ./packaging/build-windows-msi.ps1
+          -BuildStagingMsi
+          -ModelCache "${{ vars.SVX_WINDOWS_MODEL_CACHE }}"
+          -Output "${{ vars.SVX_RELEASE_EVIDENCE_ROOT }}\${{ github.sha }}\staging-msi"
+      - name: Build signed but non-eligible production MSI candidate
+        if: inputs.mode == 'production-msi'
+        shell: powershell
+        run: |
+          $Arguments = @{
+            BuildProductionMsi = $true
+            ModelCache = "${{ vars.SVX_WINDOWS_MODEL_CACHE }}"
+            ProductionCatalogAssetRoot = "${{ vars.SVX_PRODUCTION_CATALOG_ASSETS }}"
+            SourceLicenseApproval = "${{ vars.SVX_SOURCE_LICENSE_APPROVAL }}"
+            ModelRedistributionApproval = "${{ vars.SVX_MODEL_REDISTRIBUTION_APPROVAL }}"
+            CertificateThumbprint = "${{ vars.SVX_SIGNING_CERT_THUMBPRINT }}"
+            CertificateStoreScope = "LocalMachine"
+            Output = "${{ vars.SVX_RELEASE_EVIDENCE_ROOT }}\${{ github.sha }}\production-msi"
+          }
+          if ("${{ inputs.first_release }}" -eq "true") {
+            $Arguments.FirstRelease = $true
+          }
+          else {
+            $Arguments.PriorSignedMsi = "${{ vars.SVX_PRIOR_SIGNED_MSI }}"
+          }
+          if ("${{ inputs.first_production_catalog }}" -eq "true") {
+            $Arguments.FirstProductionCatalog = $true
+          }
+          else {
+            $Arguments.CatalogBaseline = "${{ vars.SVX_CATALOG_BASELINE_REPORT }}"
+          }
+          ./packaging/build-windows-msi.ps1 @Arguments
+      - name: Confirm workflow never publishes
+        shell: powershell
+        run: |
+          Write-Host 'No artifact upload or GitHub Release step exists in this workflow.'
+          Write-Host 'Every generated MSI remains releaseEligible=false pending native and legal gates.'

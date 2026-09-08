@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "maximumBlobBytes": 67108864,
+  "maximumPathsPerBlob": 100,
+  "archiveExtensions": [
+    ".7z",
+    ".bz2",
+    ".gz",
+    ".rar",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".xz",
+    ".zip"
+  ],
+  "auditedArchiveExtensions": [
+    ".zip"
+  ],
+  "markerDefinitionPath": "tools/release_privacy_rules.json",
+  "forbiddenExtensions": [
+    ".p12",
+    ".pfx"
+  ],
+  "secretPatterns": [
+    {
+      "id": "pem-private-key",
+      "pattern": "-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+    },
+    {
+      "id": "aws-access-key",
+      "pattern": "(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])"
+    },
+    {
+      "id": "github-token",
+      "pattern": "(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})"
+    },
+    {
+      "id": "slack-token",
+      "pattern": "xox[baprs]-[A-Za-z0-9-]{20,}"
+    },
+    {
+      "id": "google-api-key",
+      "pattern": "AIza[0-9A-Za-z_-]{35}"
+    },
+    {
+      "id": "openai-api-key",
+      "pattern": "sk-(?:proj-)?[A-Za-z0-9_-]{20,}"
+    }
+  ]
+}
