@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "forbiddenPathSegments": [
+    "offline_extracted",
+    "private_user_state",
+    "payload_support",
+    "voice_samples",
+    "reference_audio",
+    "generated_wav",
+    "baseline-overlay"
+  ],
+  "forbiddenFileNames": [
+    ".env",
+    "benchmarks.json",
+    "preferences.json",
+    "server.log",
+    "project.bundle",
+    "file_manifest_sha256.json"
+  ],
+  "forbiddenExtensions": [
+    ".wav",
+    ".flac",
+    ".mp3",
+    ".m4a",
+    ".aac",
+    ".ogg",
+    ".log",
+    ".sqlite",
+    ".sqlite3",
+    ".db"
+  ],
+  "contentMarkers": [
+    "SVX_PRIVATE_USER_STATE_PAYLOAD",
+    "PRIVATE_USER_STATE:"
+  ],
+  "textExtensions": [
+    ".txt",
+    ".md",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".ini",
+    ".cfg",
+    ".xml"
+  ],
+  "allowedZipExtraFieldIds": [
+    10,
+    21589,
+    30837
+  ],
+  "maximumTextBytes": 4194304,
+  "maximumArchiveDepth": 3,
+  "maximumArchiveMembers": 10000,
+  "maximumArchiveUncompressedBytes": 2147483648,
+  "maximumArchiveMemberBytes": 536870912,
+  "maximumNestedArchiveBytes": 134217728,
+  "maximumCompressionRatio": 200
+}
