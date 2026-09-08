@@ -4736,10 +4736,9 @@ public class Form1 : Form
 		{
 			return true;
 		}
-		if (c == '다' || c == '요' || c == '까' || c == '네' || c == '죠' || c == '습')
-		{
-			return true;
-		}
+		// Only punctuation ends a sentence. Hangul syllables such as 다/요/까/네/죠/습 also start
+		// ordinary words (다음, 요즘, 까지, 네가, 습니다), so treating them as sentence ends would cut
+		// words in half and break the intonation at the join.
 		return false;
 	}
 
