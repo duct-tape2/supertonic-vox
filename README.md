@@ -1,14 +1,14 @@
 # Supertonic Vox
 
-A privacy-first local Korean TTS desktop application for Windows x64. Runs two synthesis engines (Supertonic 3 and VoxCPM2) with no cloud connection and no telemetry.
+An open-source Windows desktop front-end integrating public open-source TTS engines in one window: Higgs Audio v3 (main), Supertonic 3, and VoxCPM2. All engines run locally with no cloud connection and no telemetry.
 
 ## Status
 
-This is v0.1.0 of the source release. It is a recovery line extracted from the 2.0.0 desktop binary (2026-07-27). The maintainer's personal 2.3.0 CUDA build with Higgs Audio v3 voice presets is **not** included in this source. The Higgs voice runtime scripts are published separately as `higgs-voice-kit`.
+v0.2.0 with Higgs Audio v3 support added. Higgs is now the primary engine; Supertonic 3 and VoxCPM2 are lighter-weight alternatives for testing and fallback.
 
 ## What it does
 
-- Runs Supertonic 3 (OpenRAIL-M licensed, ONNX inference) and VoxCPM2 (Apache-2.0, Python sidecar) locally
+- Runs Higgs Audio v3 TTS (primary engine), Supertonic 3 (OpenRAIL-M, ONNX), and VoxCPM2 (Apache-2.0, Python sidecar) locally
 - Hardware profiling and deterministic engine recommendation
 - Korean text synthesis, playback, cancellation, atomic WAV save
 - No network calls during synthesis; models download on first run only
@@ -17,11 +17,15 @@ This is v0.1.0 of the source release. It is a recovery line extracted from the 2
 
 ## Requirements
 
-- **Windows 10 or later**, x64 CPU (at least 32 GB RAM recommended)
+- **Windows 10 or later**, x64 CPU
 - **.NET SDK 10.0.302** or later ([download](https://dotnet.microsoft.com/download))
 - **Python 3.10+** (for VoxCPM2 sidecar; see `src/VoxCPM2Sidecar/requirements.lock`)
-- ~380 MB for Supertonic 3 model
-- ~4.6 GB for VoxCPM2 model (downloaded on first run)
+- **Higgs Audio v3 runtime** (optional, for primary engine; see [HIGGS_ENGINE.md](docs/HIGGS_ENGINE.md))
+  - 5.1 GB GGUF model (q8_0 quantization)
+  - audio.cpp server (CPU or CUDA)
+  - Minimum 12 GB available commit memory recommended
+- Supertonic 3: ~380 MB model
+- VoxCPM2: ~4.6 GB model (downloaded on first run)
 
 ## Build
 
@@ -48,11 +52,23 @@ See `BUILD_AND_RELEASE.md` for cross-platform .NET 10 successor (Avalonia) and p
 ## First run
 
 1. Start the application
-2. Select an engine (Supertonic 3 or VoxCPM2)
-3. Models are downloaded and verified on demand (~380 MB + ~4.6 GB, depending on engine)
-4. Synthesis begins once models are ready
+2. Select an engine: Higgs Audio v3 (primary), Supertonic 3, or VoxCPM2
+3. For Higgs, install the runtime per [HIGGS_ENGINE.md](docs/HIGGS_ENGINE.md); for other engines, models download on demand
+4. Synthesis begins once runtime/models are ready
 
 No installation or administrator privileges required—the executable is standalone.
+
+## Engines
+
+| Engine | Params | Model format | Hardware | Languages | Quality notes | License |
+|--------|--------|--------------|----------|-----------|---------------|---------|
+| **Higgs Audio v3** | ~4B decoder / ~5B total | GGUF q8_0 (5.1 GB) | CUDA GPU or CPU | 102+ | Primary engine, best quality in listening tests | Boson Research + Non-Commercial, Creator Use Grant (credited use) |
+| **Supertonic 3** | ~99M | ONNX Runtime | CPU only | 31 | Lightweight, fast | OpenRAIL-M |
+| **VoxCPM2** | 2B | PyTorch (sidecar) | CPU only | 30 | Experimental | Apache-2.0 |
+
+**Quality**: The three engines are not benchmarked on a shared test set. Published metrics use different datasets. In the owner's listening tests, Higgs Audio v3 produces the most natural Korean synthesis.
+
+See [HIGGS_ENGINE.md](docs/HIGGS_ENGINE.md) for Higgs Audio v3 setup, GPU/CPU selection, and voice configuration.
 
 ## Known limitations
 
@@ -61,9 +77,9 @@ No installation or administrator privileges required—the executable is standal
 - Interactive playback, cancellation, timeout, and memory-pressure scenarios were not exhaustively automated on this host.
 - C# security helpers are tested; Korean pronunciation rules remain tightly coupled to the form and need extraction.
 - The executable is unsigned. File-manifest verification requires the manifest to remain trusted.
-- CPU execution assumed; GPU/CUDA packaging is not included in this release.
 - No installer or updater. The Avalonia successor now includes signed-catalog runtime-pack install, side-by-side update/rollback, and stop-before-uninstall (see `BUILD_AND_RELEASE.md`).
 - Supertonic model provenance cannot be locally verified; the SHA-256 hash in `MODEL_PROVENANCE.md` is authoritative.
+- Higgs Audio v3 GPU/CPU selection is automatic; manual override via code modification only.
 
 ## Screenshots
 
@@ -78,6 +94,10 @@ Contributions are welcome. Open an issue or PR for bug reports, improvements, or
 Application source code: **MIT** (see `LICENSE`)
 
 Third-party components retain their own licenses:
+- **Higgs Audio v3 model**: Boson Higgs TTS 3 Research and Non-Commercial License
+  - Requires separate download from https://huggingface.co/audio-cpp/audio.cpp-gguf
+  - Creator Use Grant: free for credited monetized content ("Boson AI's Higgs Audio")
+  - Products and hosted APIs require separate agreement; cloning without consent prohibited
 - **Supertonic 3 model**: BigScience Open RAIL-M (see `licenses/Supertonic-3_OpenRAIL.txt`)
   - Model weights are downloaded at runtime, not shipped with this source.
   - Use-based restrictions apply to anyone downloading the weights.
@@ -86,13 +106,6 @@ Third-party components retain their own licenses:
 - **Supertonic Python package**: MIT (see `licenses/Supertonic-Python_MIT.txt`)
 
 See `THIRD_PARTY_NOTICES.md` for full attribution.
-
-## Model sizes
-
-| Engine | Model file | Size |
-|--------|-----------|------|
-| Supertonic 3 | ONNX weights + voices | ~380 MB |
-| VoxCPM2 | safetensors + audio VAE | ~4.6 GB |
 
 Models are verified by SHA-256 hash on download (see `MODEL_PROVENANCE.md`).
 
