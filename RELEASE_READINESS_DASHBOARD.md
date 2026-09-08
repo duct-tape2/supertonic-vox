@@ -69,7 +69,7 @@ Evidence directory: `artifacts/public-release-staging/d087d8c29922/` (ignored by
 - Git bundle SHA-256: `bc63f485d0b00dc6e95df3e70b511579fbcc3d68e6464f17b6503dd3190f203b` (343,282 bytes)
 - `source-archive-privacy-report.json` reports PASS with 0 findings and binds the exact source ZIP fingerprint.
 - `history-audit.json` and `delivered-history-audit.json` both report repository and bundle PASS with 0 findings.
-- This is review staging only. `SOURCE_LICENSE_PENDING.md` and `releaseEligible=false` prohibit publication.
+- Source is published under the MIT `LICENSE` at the repository root. Binary releases are not part of this source line.
 
 ## Latest VoxCPM2 protocol-v2 source milestone
 

@@ -4,7 +4,7 @@ A privacy-first local Korean TTS desktop application for Windows x64. Runs two s
 
 ## Status
 
-This is v0.1.0 of the source release. It is a recovery line extracted from the 2.0.0 desktop binary (2026-07-27). The maintainer's personal 2.3.0 CUDA-optimized build with Higgs voice presets is **not** included in this source—that build lives in the separate `higgs-voice-kit` repository.
+This is v0.1.0 of the source release. It is a recovery line extracted from the 2.0.0 desktop binary (2026-07-27). The maintainer's personal 2.3.0 CUDA build with Higgs Audio v3 voice presets is **not** included in this source. The Higgs voice runtime scripts are published separately as `higgs-voice-kit`.
 
 ## What it does
 
