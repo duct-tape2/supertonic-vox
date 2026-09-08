@@ -765,7 +765,7 @@ internal static class SidecarTestFixture
         throw new DirectoryNotFoundException("Could not locate the solution root for the Fake Vox sidecar.");
     }
 
-    private static string Normalize(string value) => value.Replace(Path.DirectorySeparatorChar, '/');
+    private static string Normalize(string value) => value.Replace('\\', '/');
 }
 
 internal sealed record DirectFakeEndpoint(Process Process, int Port);
