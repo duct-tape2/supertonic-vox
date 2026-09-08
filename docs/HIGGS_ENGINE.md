@@ -79,7 +79,7 @@ Example:
 
 ```
 voices/alice.wav
-voices/alice.txt (contains: "안녕하세요 테스트입니다")
+voices/alice.txt (contains the exact transcript of alice.wav, in the language of the recording)
 ```
 
 The app discovers voices from the `voices\` directory. No hardcoded list required.
@@ -111,7 +111,7 @@ HiggsAudioV3/
 
 ## Quality Presets
 
-Three quality/speed trade-offs (in Korean UI: "빠른 생성", "균형", "고품질"):
+Three quality/speed trade-offs (the UI labels them Fast, Balanced and High quality in Korean):
 
 | Setting | max_tokens | temperature | top_k | top_p | Use case |
 |---------|-----------|-------------|-------|-------|----------|
