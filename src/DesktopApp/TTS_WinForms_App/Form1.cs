@@ -31,7 +31,8 @@ public class Form1 : Form
 	private enum TtsEngineKind
 	{
 		Supertonic,
-		VoxCpm2
+		VoxCpm2,
+		HiggsAudioV3
 	}
 
 	public class VoiceItem
@@ -114,6 +115,22 @@ public class Form1 : Form
 	private const long VoxAudioVaeSize = 376951122L;
 
 	private const string SampleCacheVersion = "tone10-court";
+
+	private const string EngineHiggs = "Higgs Audio v3 Local (CUDA/CPU Q8)";
+
+	private const long HiggsModelSize = 5095354048L;
+
+	private const string HiggsSampleCacheSchema = "higgs-sample-v6-continuity-anchor";
+
+	private const string HiggsVoiceAnchorSchema = "higgs-voice-anchor-v1";
+
+	private const string HiggsSampleText = "안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.";
+
+	private const int HiggsChunkMaxLength = 200;
+
+	private const int HiggsMaxTokensRetryCap = 4096;
+
+	private const ulong HiggsMinimumAvailableCommitBytes = 12884901888uL;
 
 	private static readonly IReadOnlyDictionary<string, (long Size, string Sha256)> SupertonicModelIntegrity =
 		new Dictionary<string, (long, string)>(StringComparer.OrdinalIgnoreCase)
@@ -207,6 +224,36 @@ public class Form1 : Form
 	private string voxReferencePath = "";
 
 	private string voxReferenceDisplayName = "";
+
+	private Process higgsProcess;
+
+	private readonly object higgsLogLock = new object();
+
+	private int higgsPort;
+
+	private bool higgsMemoryRecoveryAttempted;
+
+	private bool higgsUseLowMemoryReference;
+
+	private bool higgsForceCpuForSession;
+
+	private bool? higgsCudaAvailable;
+
+	private string higgsActiveBackend = "cpu";
+
+	private string cachedHiggsVoice = "higgs_default";
+
+	private int cachedHiggsSpeed = 100;
+
+	private string cachedHiggsQuality = "고품질";
+
+	private int cachedHiggsVolume = 100;
+
+	private int cachedHiggsPause = 25;
+
+	private string cachedHiggsTone = "기본";
+
+	private int cachedHiggsSeed = 42;
 
 	private const int MaxChunkLength = 1200;
 
@@ -372,6 +419,7 @@ public class Form1 : Form
 		};
 		comboBoxEngine.Items.Add("Supertonic Local");
 		comboBoxEngine.Items.Add("VoxCPM2 Local");
+		comboBoxEngine.Items.Add("Higgs Audio v3 Local (CUDA/CPU Q8)");
 		comboBoxEngine.SelectedIndex = 0;
 		comboBoxEngine.SelectedIndexChanged += comboBoxEngine_SelectedIndexChanged;
 		labelVoice.Location = new Point(529, 121);
@@ -1219,9 +1267,11 @@ public class Form1 : Form
 	}
 
 	private TtsEngineKind SelectedEngine =>
-		string.Equals(comboBoxEngine?.SelectedItem?.ToString(), EngineVoxCpm2, StringComparison.Ordinal)
-			? TtsEngineKind.VoxCpm2
-			: TtsEngineKind.Supertonic;
+		string.Equals(comboBoxEngine?.SelectedItem?.ToString(), EngineHiggs, StringComparison.Ordinal)
+			? TtsEngineKind.HiggsAudioV3
+			: string.Equals(comboBoxEngine?.SelectedItem?.ToString(), EngineVoxCpm2, StringComparison.Ordinal)
+				? TtsEngineKind.VoxCpm2
+				: TtsEngineKind.Supertonic;
 
 	private void LoadVoiceOptionsForEngine()
 	{
@@ -1240,6 +1290,10 @@ public class Form1 : Form
 			comboBoxVoice.Items.Add(new VoiceItem("F4", "F4 - 자신감 있는 설명형 여성"));
 			comboBoxVoice.Items.Add(new VoiceItem("F5", "F5 - 부드럽고 다정한 여성"));
 		}
+		else if (IsHiggsSelected())
+		{
+			LoadHiggsVoiceOptions();
+		}
 		else
 		{
 			comboBoxVoice.Items.Add(new VoiceItem("vox_news_f", "뉴스 여성"));
@@ -1250,9 +1304,33 @@ public class Form1 : Form
 		}
 		if (!IsSupertonicSelected() && string.IsNullOrWhiteSpace(voiceId))
 		{
-			voiceId = "vox_news_f";
+			voiceId = IsHiggsSelected() ? "higgs_default" : "vox_news_f";
 		}
 		SelectVoiceById(voiceId);
+	}
+
+	private void LoadHiggsVoiceOptions()
+	{
+		comboBoxVoice.Items.Add(new VoiceItem("higgs_default", "Model default voice"));
+		string voicesDir = Path.Combine(GetHiggsRuntimeRoot(), "voices");
+		if (Directory.Exists(voicesDir))
+		{
+			try
+			{
+				string[] wavFiles = Directory.GetFiles(voicesDir, "*.wav", SearchOption.TopDirectoryOnly);
+				foreach (string wavFile in wavFiles.OrderBy(f => Path.GetFileNameWithoutExtension(f)))
+				{
+					string voiceId = Path.GetFileNameWithoutExtension(wavFile);
+					if (!voiceId.EndsWith(".lowmem", StringComparison.OrdinalIgnoreCase))
+					{
+						comboBoxVoice.Items.Add(new VoiceItem(voiceId, voiceId));
+					}
+				}
+			}
+			catch
+			{
+			}
+		}
 	}
 
 	private void SelectVoiceById(string voiceId)
@@ -4784,6 +4862,982 @@ public class Form1 : Form
 		base.Dispose(disposing);
 	}
 
+
+	private bool IsHiggsSelected()
+	{
+		return SelectedEngine == TtsEngineKind.HiggsAudioV3;
+	}
+
+	private string GetHiggsRoot()
+	{
+		return Path.Combine(InternalRoot, "HiggsAudioV3Local");
+	}
+
+	private string GetHiggsPersistentSampleCacheDirectory()
+	{
+		return Path.Combine(GetHiggsRuntimeRoot(), "cache", "samples");
+	}
+
+	private string GetHiggsVoiceAnchorCacheDirectory()
+	{
+		return Path.Combine(GetHiggsRuntimeRoot(), "cache", "voice_anchors");
+	}
+
+	private void MigrateLegacyHiggsSampleCache(string persistentDirectory)
+	{
+		try
+		{
+			string text = Path.Combine(GetHiggsRoot(), "cache", "samples");
+			if (!Directory.Exists(text) || string.Equals(text, persistentDirectory, StringComparison.OrdinalIgnoreCase))
+			{
+				return;
+			}
+			string[] files = Directory.GetFiles(text, "*.wav", SearchOption.TopDirectoryOnly);
+			foreach (string text2 in files)
+			{
+				string text3 = Path.Combine(persistentDirectory, Path.GetFileName(text2));
+				if (!File.Exists(text3))
+				{
+					File.Copy(text2, text3, overwrite: false);
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			AppendHiggsLog("legacy sample cache migration skipped: " + ex.Message);
+		}
+	}
+
+	private string GetHiggsRuntimeRoot()
+	{
+		string folderPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+		string text = Path.Combine(folderPath, "SupertonicVox", "higgs");
+		if (HasAnyHiggsServer(text) && File.Exists(Path.Combine(text, "models", "Higgs-Audio-v3-TTS-4B-GGUF", "higgs-audio-v3-tts-4b-q8_0.gguf")))
+		{
+			return text;
+		}
+		return Path.Combine(InstallRoot, "HiggsAudioV3");
+	}
+
+	private static bool HasAnyHiggsServer(string runtimeRoot)
+	{
+		if (!File.Exists(Path.Combine(runtimeRoot, "gpu", "audiocpp_server.exe")) && !File.Exists(Path.Combine(runtimeRoot, "cuda", "audiocpp_server.exe")))
+		{
+			return File.Exists(Path.Combine(runtimeRoot, "cpu", "audiocpp_server.exe"));
+		}
+		return true;
+	}
+
+	private bool IsNvidiaCudaAvailable()
+	{
+		if (higgsCudaAvailable.HasValue)
+		{
+			return higgsCudaAvailable.Value;
+		}
+		try
+		{
+			using Process process = new Process
+			{
+				StartInfo = new ProcessStartInfo
+				{
+					FileName = "nvidia-smi.exe",
+					Arguments = "--query-gpu=name,memory.total --format=csv,noheader",
+					UseShellExecute = false,
+					CreateNoWindow = true,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true
+				}
+			};
+			process.Start();
+			string text = process.StandardOutput.ReadToEnd();
+			if (!process.WaitForExit(5000))
+			{
+				process.Kill(entireProcessTree: true);
+			}
+			higgsCudaAvailable = process.HasExited && process.ExitCode == 0 && text.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+		catch
+		{
+			higgsCudaAvailable = false;
+		}
+		return higgsCudaAvailable.Value;
+	}
+
+	private (string ServerPath, string Backend) ResolveHiggsRuntimeServer(bool forceCpu)
+	{
+		string higgsRuntimeRoot = GetHiggsRuntimeRoot();
+		if (!forceCpu && IsNvidiaCudaAvailable())
+		{
+			string[] array = new string[2] { "gpu", "cuda" };
+			foreach (string path in array)
+			{
+				string text = Path.Combine(higgsRuntimeRoot, path, "audiocpp_server.exe");
+				if (File.Exists(text))
+				{
+					return (ServerPath: text, Backend: "cuda");
+				}
+			}
+		}
+		string text2 = Path.Combine(higgsRuntimeRoot, "cpu", "audiocpp_server.exe");
+		if (File.Exists(text2))
+		{
+			return (ServerPath: text2, Backend: "cpu");
+		}
+		throw new FileNotFoundException("Higgs Audio v3 CPU/CUDA server executable not found.", text2);
+	}
+
+	private string GetHiggsPreferredBackendLabel()
+	{
+		try
+		{
+			return (ResolveHiggsRuntimeServer(forceCpu: false).Backend == "cuda") ? "CUDA GPU" : "CPU";
+		}
+		catch
+		{
+			return "Not installed";
+		}
+	}
+
+	private string GetHiggsModelDirectory()
+	{
+		return Path.Combine(GetHiggsRuntimeRoot(), "models", "Higgs-Audio-v3-TTS-4B-GGUF");
+	}
+
+	private string GetHiggsModelPath()
+	{
+		return Path.Combine(GetHiggsModelDirectory(), "higgs-audio-v3-tts-4b-q8_0.gguf");
+	}
+
+	private string GetHiggsVoiceReferencePath(string voiceId)
+	{
+		if (string.IsNullOrWhiteSpace(voiceId) || string.Equals(voiceId, "higgs_default", StringComparison.Ordinal))
+		{
+			return "";
+		}
+		if (higgsUseLowMemoryReference)
+		{
+			string text = Path.Combine(GetHiggsRuntimeRoot(), "voices", voiceId + ".lowmem.wav");
+			if (File.Exists(text))
+			{
+				return text;
+			}
+		}
+		return Path.Combine(GetHiggsRuntimeRoot(), "voices", voiceId + ".wav");
+	}
+
+	private bool HasHiggsLowMemoryReference(string voiceId)
+	{
+		if (!string.IsNullOrWhiteSpace(voiceId))
+		{
+			return File.Exists(Path.Combine(GetHiggsRuntimeRoot(), "voices", voiceId + ".lowmem.wav"));
+		}
+		return false;
+	}
+
+	private void ValidateHiggsVoiceReferenceOrThrow(string voiceId)
+	{
+		if (!string.IsNullOrWhiteSpace(voiceId) && !string.Equals(voiceId, "higgs_default", StringComparison.Ordinal))
+		{
+			string higgsVoiceReferencePath = GetHiggsVoiceReferencePath(voiceId);
+			if (!File.Exists(higgsVoiceReferencePath))
+			{
+				throw new FileNotFoundException("Higgs voice reference WAV not found: " + voiceId + ". Please restore the file and try again.", higgsVoiceReferencePath);
+			}
+			WavData wavData;
+			try
+			{
+				wavData = ReadWavData(File.ReadAllBytes(higgsVoiceReferencePath));
+			}
+			catch (Exception innerException)
+			{
+				throw new InvalidDataException("Failed to read Higgs voice reference WAV: " + voiceId + ".", innerException);
+			}
+			if (wavData.AudioFormat != 1 || wavData.BitsPerSample != 16 || wavData.Channels != 1 || wavData.SampleRate != 24000)
+			{
+				throw new InvalidDataException($"Higgs voice reference WAV format is incorrect: {voiceId} ({wavData.SampleRate}Hz, {wavData.Channels}ch, {wavData.BitsPerSample}bit, format {wavData.AudioFormat}). PCM16 mono 24kHz required. Path: {higgsVoiceReferencePath}");
+			}
+			double num = (double)wavData.Data.Length / (double)(wavData.SampleRate * wavData.Channels * (wavData.BitsPerSample / 8));
+			if (num < 5.0 || num > 20.0)
+			{
+				throw new InvalidDataException($"Higgs voice reference WAV duration out of range: {voiceId} ({num:0.###}s, 5-20s required). Path: {higgsVoiceReferencePath}");
+			}
+		}
+	}
+
+	private string GetHiggsReferenceVersion(string referencePath)
+	{
+		using FileStream inputStream = File.OpenRead(referencePath);
+		using SHA256 sHA = SHA256.Create();
+		return Convert.ToHexString(sHA.ComputeHash(inputStream)).ToLowerInvariant();
+	}
+
+	private string GetHiggsVoiceReferenceText(string voiceId)
+	{
+		if (string.IsNullOrWhiteSpace(voiceId) || string.Equals(voiceId, "higgs_default", StringComparison.Ordinal))
+		{
+			return "";
+		}
+		string voicesPath = Path.Combine(GetHiggsRuntimeRoot(), "voices");
+		string textFile = Path.Combine(voicesPath, voiceId + ".txt");
+		if (File.Exists(textFile))
+		{
+			try
+			{
+				return File.ReadAllText(textFile, Encoding.UTF8).Trim();
+			}
+			catch
+			{
+			}
+		}
+		return "";
+	}
+
+	private string GetHiggsLowMemoryReferenceText(string voiceId)
+	{
+		string referenceText = GetHiggsVoiceReferenceText(voiceId);
+		if (!string.IsNullOrWhiteSpace(referenceText) && referenceText.Length > 100)
+		{
+			return referenceText.Substring(0, 100);
+		}
+		return referenceText;
+	}
+
+	private List<string> GetMissingHiggsFiles()
+	{
+		List<string> list = new List<string>();
+		string higgsRuntimeRoot = GetHiggsRuntimeRoot();
+		string higgsModelPath = GetHiggsModelPath();
+		if (!HasAnyHiggsServer(higgsRuntimeRoot))
+		{
+			list.Add("cpu or gpu\\audiocpp_server.exe");
+		}
+		if (!File.Exists(higgsModelPath) || new FileInfo(higgsModelPath).Length != 5095354048L)
+		{
+			list.Add("models\\Higgs-Audio-v3-TTS-4B-GGUF\\higgs-audio-v3-tts-4b-q8_0.gguf");
+		}
+		return list;
+	}
+
+	private void ValidateHiggsInstallationOrThrow()
+	{
+		List<string> missingHiggsFiles = GetMissingHiggsFiles();
+		if (missingHiggsFiles.Count > 0)
+		{
+			throw new FileNotFoundException("Higgs Audio v3 installation incomplete. Missing or size mismatch: " + string.Join(", ", missingHiggsFiles));
+		}
+	}
+
+	private int FindAvailableHiggsPort()
+	{
+		for (int i = 8088; i <= 8098; i++)
+		{
+			if (IsPortAvailable(i))
+			{
+				return i;
+			}
+		}
+		throw new Exception("No available port for Higgs Audio v3 server. Check ports 8088-8098.");
+	}
+
+	private string WriteHiggsServerConfig(int port, string backend)
+	{
+		string text = Path.Combine(GetHiggsRuntimeRoot(), "server_higgs_integrated.json");
+		JObject val = JObject.FromObject((object)new
+		{
+			host = "127.0.0.1",
+			port = port,
+			backend = backend,
+			device = 0,
+			threads = Math.Max(1, Math.Min(19, Environment.ProcessorCount - 1)),
+			lazy_load = true,
+			busy_timeout_ms = 1800000,
+			models = new[]
+			{
+				new
+				{
+					id = "higgs-audio-tts",
+					family = "higgs_audio_tts",
+					path = GetHiggsModelPath(),
+					task = "tts",
+					mode = "offline",
+					lazy = true
+				}
+			}
+		});
+		File.WriteAllText(text, ((object)val).ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+		return text;
+	}
+
+	private async Task<bool> IsHiggsHealthyAsync(int port)
+	{
+		_ = 2;
+		try
+		{
+			using HttpClientHandler handler = new HttpClientHandler
+			{
+				UseProxy = false
+			};
+			using HttpClient client = new HttpClient(handler)
+			{
+				Timeout = TimeSpan.FromSeconds(2.0)
+			};
+			using HttpResponseMessage health = await client.GetAsync($"http://127.0.0.1:{port}/health");
+			if (!health.IsSuccessStatusCode)
+			{
+				return false;
+			}
+			using HttpResponseMessage models = await client.GetAsync($"http://127.0.0.1:{port}/v1/models");
+			if (!models.IsSuccessStatusCode)
+			{
+				return false;
+			}
+			return (await models.Content.ReadAsStringAsync()).Contains("higgs-audio-tts", StringComparison.OrdinalIgnoreCase);
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	private void StopStaleHiggsRuntimeServers()
+	{
+		string value = Path.GetFullPath(GetHiggsRuntimeRoot()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+		Process[] processesByName = Process.GetProcessesByName("audiocpp_server");
+		foreach (Process process in processesByName)
+		{
+			try
+			{
+				string text = process.MainModule?.FileName;
+				if (!string.IsNullOrWhiteSpace(text) && Path.GetFullPath(text).StartsWith(value, StringComparison.OrdinalIgnoreCase))
+				{
+					process.Kill(entireProcessTree: true);
+					process.WaitForExit(10000);
+				}
+			}
+			catch
+			{
+			}
+			finally
+			{
+				process.Dispose();
+			}
+		}
+	}
+
+	private async Task EnsureHiggsServerAsync()
+	{
+		bool flag = higgsProcess != null && !higgsProcess.HasExited && higgsPort > 0;
+		if (flag)
+		{
+			flag = await IsHiggsHealthyAsync(higgsPort);
+		}
+		if (!flag)
+		{
+			StopHiggsServer();
+			StopSupertonicServer();
+			if (!StopVoxServer())
+			{
+				throw new Exception("VoxCPM2 server did not stop; cannot start Higgs Audio v3.");
+			}
+			ValidateHiggsInstallationOrThrow();
+			string runtimeRoot = GetHiggsRuntimeRoot();
+			(string ServerPath, string Backend) runtime = ResolveHiggsRuntimeServer(higgsForceCpuForSession);
+			try
+			{
+				await StartHiggsRuntimeAsync(runtime, runtimeRoot);
+			}
+			catch (Exception ex) when ((generationCancellation == null || !generationCancellation.IsCancellationRequested) && string.Equals(runtime.Backend, "cuda", StringComparison.OrdinalIgnoreCase) && File.Exists(Path.Combine(runtimeRoot, "cpu", "audiocpp_server.exe")))
+			{
+				AppendHiggsLog("CUDA runtime startup failed; switching to CPU fallback once. " + ex.Message);
+				StopHiggsServer();
+				higgsForceCpuForSession = true;
+				(string, string) runtime2 = ResolveHiggsRuntimeServer(forceCpu: true);
+				await StartHiggsRuntimeAsync(runtime2, runtimeRoot);
+			}
+		}
+	}
+
+	private async Task StartHiggsRuntimeAsync((string ServerPath, string Backend) runtime, string runtimeRoot)
+	{
+		string item = runtime.ServerPath;
+		int portToUse = FindAvailableHiggsPort();
+		string text = WriteHiggsServerConfig(portToUse, runtime.Backend);
+		ProcessStartInfo startInfo = new ProcessStartInfo
+		{
+			FileName = item,
+			Arguments = "--config \"" + text + "\"",
+			WorkingDirectory = runtimeRoot,
+			UseShellExecute = false,
+			CreateNoWindow = true,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true
+		};
+		higgsProcess = new Process
+		{
+			StartInfo = startInfo
+		};
+		higgsProcess.OutputDataReceived += delegate(object s, DataReceivedEventArgs e)
+		{
+			AppendHiggsLog(e.Data);
+		};
+		higgsProcess.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e)
+		{
+			AppendHiggsLog(e.Data);
+		};
+		higgsProcess.Start();
+		higgsProcess.BeginOutputReadLine();
+		higgsProcess.BeginErrorReadLine();
+		higgsPort = portToUse;
+		higgsActiveBackend = runtime.Backend;
+		AppendHiggsLog("starting Higgs runtime backend=" + runtime.Backend + ", server=" + item);
+		DateTime deadline = DateTime.Now.AddMinutes(3.0);
+		while (DateTime.Now < deadline)
+		{
+			generationCancellation?.Token.ThrowIfCancellationRequested();
+			if (await IsHiggsHealthyAsync(portToUse))
+			{
+				return;
+			}
+			if (higgsProcess.HasExited)
+			{
+				throw new Exception($"Higgs Audio v3 server exited during startup (exit code {higgsProcess.ExitCode}). Check logs\\higgs_server_integrated.log.");
+			}
+			await Task.Delay(1000);
+		}
+		throw new TimeoutException("Higgs Audio v3 server did not become ready within 3 minutes.");
+	}
+
+	private void AppendHiggsLog(string line)
+	{
+		if (string.IsNullOrWhiteSpace(line))
+		{
+			return;
+		}
+		try
+		{
+			string path = Path.Combine(GetHiggsRuntimeRoot(), "logs", "higgs_server_integrated.log");
+			Directory.CreateDirectory(Path.GetDirectoryName(path));
+			lock (higgsLogLock)
+			{
+				File.AppendAllText(path, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ") + line + Environment.NewLine, Encoding.UTF8);
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	private async Task<byte[]> CallHiggsTtsApi(string text, string voiceId, int seed, string quality, CancellationToken cancellationToken, int maxTokensCap = 0, string voiceReferenceOverride = null, string referenceTextOverride = null)
+	{
+		if (string.IsNullOrWhiteSpace(quality))
+		{
+			quality = cachedHiggsQuality;
+		}
+		int maxTokens = ((quality == "빠른 생성") ? 1200 : ((quality == "균형") ? 1600 : 2048));
+		if (maxTokensCap > 0)
+		{
+			maxTokens = Math.Min(maxTokens, maxTokensCap);
+		}
+		double temperature = ((quality == "빠른 생성") ? 0.58 : ((quality == "균형") ? 0.62 : 0.66));
+		int topK = ((quality == "빠른 생성") ? 16 : ((quality == "균형") ? 20 : 24));
+		double topP = ((quality == "빠른 생성") ? 0.72 : ((quality == "균형") ? 0.76 : 0.8));
+		string voiceReference = (string.IsNullOrWhiteSpace(voiceReferenceOverride) ? GetHiggsVoiceReferencePath(voiceId) : voiceReferenceOverride);
+		string referenceText = referenceTextOverride;
+		if (!string.IsNullOrWhiteSpace(voiceReference))
+		{
+			if (string.IsNullOrWhiteSpace(voiceReferenceOverride))
+			{
+				ValidateHiggsVoiceReferenceOrThrow(voiceId);
+				referenceText = (higgsUseLowMemoryReference ? GetHiggsLowMemoryReferenceText(voiceId) : GetHiggsVoiceReferenceText(voiceId));
+			}
+			else if (!File.Exists(voiceReference))
+			{
+				throw new FileNotFoundException("Higgs voice anchor WAV not found.", voiceReference);
+			}
+		}
+		using HttpClientHandler handler = new HttpClientHandler
+		{
+			UseProxy = false
+		};
+		using HttpClient client = new HttpClient(handler)
+		{
+			Timeout = TimeSpan.FromMinutes(30.0)
+		};
+		for (int attempt = 0; attempt < 2; attempt++)
+		{
+			int attemptMaxTokens = ((attempt == 0) ? maxTokens : Math.Min(maxTokens * 2, 4096));
+			JObject val = JObject.FromObject((object)new
+			{
+				model = "higgs-audio-tts",
+				input = text,
+				language = "ko",
+				seed = seed,
+				max_tokens = attemptMaxTokens,
+				temperature = temperature,
+				top_k = topK,
+				top_p = topP,
+				response_format = "wav"
+			});
+			if (!string.IsNullOrWhiteSpace(voiceReference))
+			{
+				val["voice_ref"] = voiceReference;
+				if (!string.IsNullOrWhiteSpace(referenceText))
+				{
+					val["reference_text"] = referenceText;
+				}
+			}
+			using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{higgsPort}/v1/audio/speech")
+			{
+				Content = new StringContent(((object)val).ToString(), Encoding.UTF8, "application/json")
+			};
+			using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+			if (response.IsSuccessStatusCode)
+			{
+				return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+			}
+			string text2 = await response.Content.ReadAsStringAsync(cancellationToken);
+			bool flag = text2.IndexOf("max_tokens before EOC", StringComparison.OrdinalIgnoreCase) >= 0;
+			if (attempt == 0 && flag && attemptMaxTokens < 4096)
+			{
+				AppendHiggsLog($"max_tokens before EOC detected: retry once ({attemptMaxTokens} -> {Math.Min(attemptMaxTokens * 2, 4096)})");
+				continue;
+			}
+			throw new Exception($"Higgs Audio v3 TTS error: {response.StatusCode}\n{text2}");
+		}
+		throw new InvalidOperationException("Higgs Audio v3 TTS retry limit exceeded.");
+	}
+
+	private async Task<(string ReferencePath, string ReferenceText)> EnsureHiggsVoiceAnchorAsync(string voiceId, int seed, string quality, CancellationToken cancellationToken)
+	{
+		string higgsVoiceReferencePath = GetHiggsVoiceReferencePath(voiceId);
+		string value = "model-default";
+		if (!string.IsNullOrWhiteSpace(higgsVoiceReferencePath))
+		{
+			ValidateHiggsVoiceReferenceOrThrow(voiceId);
+			value = GetHiggsReferenceVersion(higgsVoiceReferencePath);
+		}
+		string higgsVoiceAnchorCacheDirectory = GetHiggsVoiceAnchorCacheDirectory();
+		Directory.CreateDirectory(higgsVoiceAnchorCacheDirectory);
+		string anchorToken = ShortHash($"{"higgs-voice-anchor-v1"}|voice={voiceId}|seed={seed}|quality={quality}|ref={value}|text={"안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다."}");
+		string anchorPath = Path.Combine(higgsVoiceAnchorCacheDirectory, $"anchor_{voiceId}_{anchorToken}.wav");
+		if (File.Exists(anchorPath))
+		{
+			try
+			{
+				ValidateHiggsOutput(File.ReadAllBytes(anchorPath));
+				return (ReferencePath: anchorPath, ReferenceText: "안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.");
+			}
+			catch
+			{
+				try
+				{
+					File.Delete(anchorPath);
+				}
+				catch
+				{
+				}
+			}
+		}
+		labelProgressStatus.Text = "Creating Higgs voice anchor profile...";
+		byte[] array = await CallHiggsTtsApi("안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.", voiceId, seed, quality, cancellationToken, 1024);
+		ValidateHiggsOutput(array);
+		string text = anchorPath + ".tmp";
+		File.WriteAllBytes(text, array);
+		File.Move(text, anchorPath, overwrite: true);
+		AppendHiggsLog($"persistent voice continuity anchor created: {voiceId} ({anchorToken})");
+		return (ReferencePath: anchorPath, ReferenceText: "안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.");
+	}
+
+	private void ValidateHiggsOutput(byte[] wav)
+	{
+		if (wav == null || wav.Length < 44)
+		{
+			throw new Exception("Higgs Audio v3 returned empty WAV.");
+		}
+		WavData wavData = ReadWavData(wav);
+		if (wavData.AudioFormat != 1 || wavData.BitsPerSample != 16 || wavData.Channels != 1 || wavData.SampleRate != 24000 || wavData.Data == null || wavData.Data.Length == 0)
+		{
+			throw new Exception($"Higgs Audio v3 output format incorrect: {wavData.SampleRate}Hz, {wavData.Channels}ch, {wavData.BitsPerSample}bit");
+		}
+	}
+
+	private static bool IsHiggsMemoryAllocationFailure(Exception ex)
+	{
+		string text = ex?.ToString() ?? "";
+		if (text.IndexOf("failed to allocate", StringComparison.OrdinalIgnoreCase) < 0 && text.IndexOf("out of memory", StringComparison.OrdinalIgnoreCase) < 0 && text.IndexOf("not enough memory", StringComparison.OrdinalIgnoreCase) < 0)
+		{
+			return text.IndexOf("commitment limit", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+		return true;
+	}
+
+	private bool HasRecentHiggsMemoryAllocationFailure()
+	{
+		try
+		{
+			string path = Path.Combine(GetHiggsRuntimeRoot(), "logs", "higgs_server_integrated.log");
+			if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddMinutes(-5.0))
+			{
+				return false;
+			}
+			string text = File.ReadAllText(path);
+			int startIndex = Math.Max(0, text.Length - 12000);
+			string text2 = text.Substring(startIndex);
+			return text2.IndexOf("failed to allocate buffer", StringComparison.OrdinalIgnoreCase) >= 0 || text2.IndexOf("commitment limit", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	private static ulong GetAvailableCommitBytes()
+	{
+		try
+		{
+			MemoryStatusEx memoryStatusEx = new MemoryStatusEx();
+			return GlobalMemoryStatusEx(memoryStatusEx) ? memoryStatusEx.ullAvailPageFile : ulong.MaxValue;
+		}
+		catch
+		{
+			return ulong.MaxValue;
+		}
+	}
+
+	private static bool IsFemaleHiggsVoice(string voiceId)
+	{
+		return voiceId switch
+		{
+			"vox_news_f" => true,
+			"vox_calm_f" => true,
+			"vox_emotive_f" => true,
+			_ => voiceId?.EndsWith("_f", StringComparison.OrdinalIgnoreCase) ?? false,
+		};
+	}
+
+	private async Task<byte[]> GenerateSupertonicEmergencyFallbackAsync(string text, string higgsVoiceId, double speed, double volume, double silenceDuration, CancellationToken cancellationToken)
+	{
+		AppendHiggsLog("Higgs memory safety fallback: switching this request to Supertonic");
+		labelProgressStatus.Text = "Memory safety mode: generating with Supertonic...";
+		buttonGenerateAudio.Text = "Safe fallback generation...";
+		StopHiggsServer();
+		GC.Collect();
+		GC.WaitForPendingFinalizers();
+		await Task.Delay(500, cancellationToken);
+		await EnsureSupertonicServerAsync();
+		string fallbackVoice = (IsFemaleHiggsVoice(higgsVoiceId) ? "F1" : "M1");
+		string text2 = PrepareTextForSupertonic(text);
+		List<string> chunks = SplitTextIntoChunks(text2, 10000);
+		if (chunks.Count == 0)
+		{
+			throw new InvalidDataException("No text to generate with fallback engine.");
+		}
+		List<byte[]> wavs = new List<byte[]>();
+		for (int i = 0; i < chunks.Count; i++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			labelProgressStatus.Text = $"Memory safety mode generation... ({i + 1}/{chunks.Count})";
+			List<byte[]> list = wavs;
+			list.Add(await CallSupertonicTtsApi(chunks[i], fallbackVoice, 1.0, Math.Max(GetSelectedSteps(), 10), silenceDuration));
+		}
+		byte[] array = ((wavs.Count == 1) ? wavs[0] : MergeWavFiles(wavs));
+		if (Math.Abs(speed - 1.0) >= 0.01 || Math.Abs(volume - 1.0) >= 0.01)
+		{
+			array = ApplyVoicePostProcessingToWav(array, speed, 0, volume);
+		}
+		return array;
+	}
+
+	private async Task<byte[]> GenerateHiggsWavAsync(string text, string voiceId, int seed, string quality, double speed, double volume, double silenceDuration, bool updateGenerateButtonText, CancellationToken cancellationToken)
+	{
+		higgsMemoryRecoveryAttempted = false;
+		higgsForceCpuForSession = false;
+		higgsUseLowMemoryReference = HasHiggsLowMemoryReference(voiceId);
+		cancellationToken.ThrowIfCancellationRequested();
+		await EnsureHiggsServerAsync();
+		cancellationToken.ThrowIfCancellationRequested();
+		string text2 = PrepareTextForVox(text);
+		List<string> chunks = SplitTextIntoChunks(text2, 200);
+		if (chunks.Count == 0)
+		{
+			throw new InvalidDataException("No text to generate after Higgs preprocessing.");
+		}
+		bool isSampleRequest = string.Equals(text2.Trim(), "안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.", StringComparison.Ordinal);
+		(string ReferencePath, string ReferenceText) anchor;
+		if (!isSampleRequest)
+		{
+			string higgsVoiceReferencePath = GetHiggsVoiceReferencePath(voiceId);
+			if (!string.IsNullOrWhiteSpace(higgsVoiceReferencePath))
+			{
+				ValidateHiggsVoiceReferenceOrThrow(voiceId);
+				anchor = (ReferencePath: higgsVoiceReferencePath, ReferenceText: higgsUseLowMemoryReference ? GetHiggsLowMemoryReferenceText(voiceId) : GetHiggsVoiceReferenceText(voiceId));
+			}
+			else
+			{
+				anchor = await EnsureHiggsVoiceAnchorAsync(voiceId, seed, quality, cancellationToken);
+			}
+		}
+		else
+		{
+			anchor = await EnsureHiggsVoiceAnchorAsync(voiceId, seed, quality, cancellationToken);
+		}
+		if (isSampleRequest)
+		{
+			byte[] array = File.ReadAllBytes(anchor.ReferencePath);
+			if (Math.Abs(speed - 1.0) >= 0.01 || Math.Abs(volume - 1.0) >= 0.01)
+			{
+				labelProgressStatus.Text = "Applying speed/volume...";
+				array = ApplyVoicePostProcessingToWav(array, speed, 0, volume);
+			}
+			ValidateHiggsOutput(array);
+			return array;
+		}
+		List<byte[]> wavs = new List<byte[]>();
+		for (int i = 0; i < chunks.Count; i++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			if (updateGenerateButtonText)
+			{
+				buttonGenerateAudio.Text = $"Higgs generating... ({i + 1}/{chunks.Count})";
+			}
+			string value = (string.Equals(higgsActiveBackend, "cuda", StringComparison.OrdinalIgnoreCase) ? "CUDA GPU" : "CPU");
+			labelProgressStatus.Text = $"Higgs Audio v3 {value} generating... ({i + 1}/{chunks.Count})";
+			byte[] wav;
+			try
+			{
+				wav = await CallHiggsTtsApi(chunks[i], voiceId, seed, quality, cancellationToken, 0, anchor.ReferencePath, anchor.ReferenceText);
+			}
+			catch (Exception ex) when (!cancellationToken.IsCancellationRequested && !higgsMemoryRecoveryAttempted && IsHiggsMemoryAllocationFailure(ex))
+			{
+				higgsMemoryRecoveryAttempted = true;
+				AppendHiggsLog("memory allocation failure detected; restarting patched low-memory runtime once");
+				labelProgressStatus.Text = "Higgs memory cleanup and auto-retry...";
+				StopHiggsServer();
+				GC.Collect();
+				GC.WaitForPendingFinalizers();
+				await Task.Delay(1500, cancellationToken);
+				await EnsureHiggsServerAsync();
+				wav = await CallHiggsTtsApi(chunks[i], voiceId, seed, quality, cancellationToken, 1024, anchor.ReferencePath, anchor.ReferenceText);
+			}
+			cancellationToken.ThrowIfCancellationRequested();
+			ValidateHiggsOutput(wav);
+			wavs.Add(wav);
+		}
+		cancellationToken.ThrowIfCancellationRequested();
+		byte[] array2 = ((wavs.Count == 1) ? wavs[0] : MergeWavFilesWithSilence(wavs, silenceDuration));
+		if (Math.Abs(speed - 1.0) >= 0.01 || Math.Abs(volume - 1.0) >= 0.01)
+		{
+			labelProgressStatus.Text = "Applying speed/volume...";
+			array2 = ApplyVoicePostProcessingToWav(array2, speed, 0, volume);
+		}
+		ValidateHiggsOutput(array2);
+		return array2;
+	}
+
+	private async Task PlayHiggsGeneratedSampleAsync(VoiceItem voice)
+	{
+		generationCancellation?.Dispose();
+		generationCancellation = new CancellationTokenSource();
+		CancellationToken cancellationToken = generationCancellation.Token;
+		generationInProgress = true;
+		SetVoxGenerationControlsLocked(locked: true);
+		buttonPlaySample.Enabled = false;
+		buttonStopGenerated.Enabled = true;
+		buttonStopGenerated.Text = "Cancel generation";
+		progressBarTts.Style = ProgressBarStyle.Marquee;
+		try
+		{
+			string text = comboBoxQuality?.SelectedItem?.ToString() ?? cachedHiggsQuality;
+			int num = trackBarSpeed?.Value ?? cachedHiggsSpeed;
+			int num2 = trackBarVolume?.Value ?? cachedHiggsVolume;
+			int num3 = trackBarPause?.Value ?? cachedHiggsPause;
+			int num4 = cachedHiggsSeed;
+			string value = comboBoxTonePreset?.SelectedItem?.ToString() ?? cachedHiggsTone;
+			higgsUseLowMemoryReference = HasHiggsLowMemoryReference(voice.VoiceId);
+			string higgsVoiceReferencePath = GetHiggsVoiceReferencePath(voice.VoiceId);
+			string value2 = "model-default";
+			if (!string.IsNullOrWhiteSpace(higgsVoiceReferencePath))
+			{
+				ValidateHiggsVoiceReferenceOrThrow(voice.VoiceId);
+				value2 = GetHiggsReferenceVersion(higgsVoiceReferencePath);
+			}
+			string higgsPersistentSampleCacheDirectory = GetHiggsPersistentSampleCacheDirectory();
+			Directory.CreateDirectory(higgsPersistentSampleCacheDirectory);
+			MigrateLegacyHiggsSampleCache(higgsPersistentSampleCacheDirectory);
+			string value3 = ShortHash($"{"higgs-sample-v6-continuity-anchor"}|voice={voice.VoiceId}|speed={num}|volume={num2}|pause={num3}|quality={text}|seed={num4}|tone={value}|ref-version={value2}");
+			string samplePath = Path.Combine(higgsPersistentSampleCacheDirectory, $"higgs_{voice.VoiceId}_{value3}.wav");
+			if (File.Exists(samplePath))
+			{
+				try
+				{
+					ValidateHiggsOutput(File.ReadAllBytes(samplePath));
+				}
+				catch
+				{
+					try
+					{
+						File.Delete(samplePath);
+					}
+					catch
+					{
+					}
+				}
+			}
+			if (!File.Exists(samplePath))
+			{
+				labelProgressStatus.Text = $"Higgs generating sample... (speed {num}%)";
+				byte[] bytes = await GenerateHiggsWavAsync("안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.", voice.VoiceId, num4, text, (double)num / 100.0, (double)num2 / 100.0, (double)num3 / 100.0, updateGenerateButtonText: false, cancellationToken);
+				string text2 = samplePath + ".tmp";
+				File.WriteAllBytes(text2, bytes);
+				File.Move(text2, samplePath, overwrite: true);
+			}
+			soundPlayer.Stop();
+			soundPlayer.SoundLocation = samplePath;
+			soundPlayer.Play();
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			labelProgressStatus.Text = "Higgs sample generation cancelled.";
+		}
+		catch (Exception ex2)
+		{
+			MessageBox.Show("Higgs sample generation error: " + ex2.Message, "Higgs Sample Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+		}
+		finally
+		{
+			StopHiggsServer();
+			higgsUseLowMemoryReference = false;
+			generationInProgress = false;
+			generationCancellation?.Dispose();
+			generationCancellation = null;
+			SetVoxGenerationControlsLocked(locked: false);
+			buttonPlaySample.Enabled = true;
+			buttonStopGenerated.Text = "Stop";
+			buttonStopGenerated.Enabled = !string.IsNullOrWhiteSpace(lastGeneratedAudioPath) && File.Exists(lastGeneratedAudioPath);
+			progressBarTts.Style = ProgressBarStyle.Blocks;
+			labelProgressStatus.Text = "";
+			UpdateModelStatusLabel();
+		}
+	}
+
+	private async Task GenerateAndPlayHiggsAudio(string title, string text)
+	{
+		generationCancellation?.Dispose();
+		generationCancellation = new CancellationTokenSource();
+		CancellationToken cancellationToken = generationCancellation.Token;
+		generationInProgress = true;
+		SetVoxGenerationControlsLocked(locked: true);
+		buttonPlayGenerated.Enabled = false;
+		buttonStopGenerated.Enabled = true;
+		buttonStopGenerated.Text = "Cancel generation";
+		progressBarTts.Style = ProgressBarStyle.Marquee;
+		string partialPath = "";
+		bool usedMemorySafetyFallback = false;
+		try
+		{
+			VoiceItem voice = (comboBoxVoice.SelectedItem as VoiceItem) ?? new VoiceItem("higgs_default", "Default model voice");
+			ValidateHiggsVoiceReferenceOrThrow(voice.VoiceId);
+			string quality = comboBoxQuality?.SelectedItem?.ToString() ?? cachedHiggsQuality;
+			double speed = (double)(trackBarSpeed?.Value ?? 100) / 100.0;
+			double volume = (double)(trackBarVolume?.Value ?? 100) / 100.0;
+			double silence = (double)(trackBarPause?.Value ?? 25) / 100.0;
+			ulong availableCommitBytes = GetAvailableCommitBytes();
+			byte[] output;
+			if (string.Equals(ResolveHiggsRuntimeServer(forceCpu: false).Backend, "cpu", StringComparison.OrdinalIgnoreCase) && availableCommitBytes < 12884901888L)
+			{
+				usedMemorySafetyFallback = true;
+				AppendHiggsLog($"Higgs preflight prevented allocation crash: available commit {availableCommitBytes / 1024 / 1024} MB");
+				output = await GenerateSupertonicEmergencyFallbackAsync(text, voice.VoiceId, speed, volume, silence, cancellationToken);
+			}
+			else
+			{
+				try
+				{
+					output = await GenerateHiggsWavAsync(text, voice.VoiceId, cachedHiggsSeed, quality, speed, volume, silence, updateGenerateButtonText: true, cancellationToken);
+				}
+				catch (Exception ex) when (!cancellationToken.IsCancellationRequested && (IsHiggsMemoryAllocationFailure(ex) || HasRecentHiggsMemoryAllocationFailure()))
+				{
+					usedMemorySafetyFallback = true;
+					AppendHiggsLog("Higgs remained out of memory after recovery; completing with safety fallback");
+					output = await GenerateSupertonicEmergencyFallbackAsync(text, voice.VoiceId, speed, volume, silence, cancellationToken);
+				}
+			}
+			cancellationToken.ThrowIfCancellationRequested();
+			Directory.CreateDirectory(savedAudioPath);
+			string text2 = Path.Combine(savedAudioPath, $"{DateTime.Now:yyyyMMdd_HHmmss}_{title}.wav");
+			partialPath = text2 + ".partial";
+			File.WriteAllBytes(partialPath, output);
+			File.Move(partialPath, text2, overwrite: true);
+			partialPath = "";
+			SetLastGeneratedAudio(text2, autoPlay: true);
+			if (usedMemorySafetyFallback)
+			{
+				MessageBox.Show("Higgs detected low memory and used Supertonic fallback.\nRestart Windows to enable extended virtual memory for full Higgs generation.\n\nSaved: " + text2, "Memory Safety Fallback", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+			}
+			else
+			{
+				MessageBox.Show("Higgs Audio v3 voice generated.\n\nSaved: " + text2, "Success", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			labelProgressStatus.Text = "Higgs Audio v3 generation cancelled.";
+		}
+		catch (Exception ex3)
+		{
+			string text3 = ex3.Message;
+			if (ex3.InnerException != null && !string.IsNullOrWhiteSpace(ex3.InnerException.Message))
+			{
+				text3 = text3 + "\n" + ex3.InnerException.Message;
+			}
+			MessageBox.Show("Higgs Audio v3 generation failed. No automatic fallback to preserve voice consistency.\n\nReason: " + text3, "Higgs Audio v3 Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+		}
+		finally
+		{
+			StopHiggsServer();
+			higgsUseLowMemoryReference = false;
+			if (!string.IsNullOrWhiteSpace(partialPath) && File.Exists(partialPath))
+			{
+				try
+				{
+					File.Delete(partialPath);
+				}
+				catch
+				{
+				}
+			}
+			generationInProgress = false;
+			generationCancellation?.Dispose();
+			generationCancellation = null;
+			SetVoxGenerationControlsLocked(locked: false);
+			UpdateModelStatusLabel();
+			buttonGenerateAudio.Text = "Generate audio";
+			buttonStopGenerated.Text = "Stop";
+			progressBarTts.Style = ProgressBarStyle.Blocks;
+			labelProgressStatus.Text = "";
+			buttonPlayGenerated.Enabled = !string.IsNullOrWhiteSpace(lastGeneratedAudioPath) && File.Exists(lastGeneratedAudioPath);
+			buttonStopGenerated.Enabled = buttonPlayGenerated.Enabled;
+		}
+	}
+
+	private void StopHiggsServer()
+	{
+		try
+		{
+			if (higgsProcess != null && !higgsProcess.HasExited)
+			{
+				higgsProcess.Kill(entireProcessTree: true);
+				higgsProcess.WaitForExit(10000);
+			}
+			higgsProcess?.Dispose();
+		}
+		catch
+		{
+		}
+		higgsProcess = null;
+		higgsPort = 0;
+		StopStaleHiggsRuntimeServers();
+	}
 
 	private void InitializeComponent()
 	{
