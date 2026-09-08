@@ -1323,7 +1323,20 @@ public class Form1 : Form
 					string voiceId = Path.GetFileNameWithoutExtension(wavFile);
 					if (!voiceId.EndsWith(".lowmem", StringComparison.OrdinalIgnoreCase))
 					{
-						comboBoxVoice.Items.Add(new VoiceItem(voiceId, voiceId));
+						try
+						{
+							WavData wavData = ReadWavData(File.ReadAllBytes(wavFile));
+							if (wavData.AudioFormat != 1 || wavData.BitsPerSample != 16 || wavData.Channels != 1 || wavData.SampleRate != 24000)
+							{
+								AppendHiggsLog($"Warning: voice file {voiceId} has unsupported format ({wavData.SampleRate}Hz, {wavData.Channels}ch, {wavData.BitsPerSample}bit). 24kHz mono 16-bit required.");
+								continue;
+							}
+							comboBoxVoice.Items.Add(new VoiceItem(voiceId, voiceId));
+						}
+						catch (Exception ex)
+						{
+							AppendHiggsLog($"Warning: failed to load voice file {voiceId}: {ex.Message}");
+						}
 					}
 				}
 			}
@@ -1461,6 +1474,15 @@ public class Form1 : Form
 			cachedSupertonicPause = trackBarPause?.Value ?? cachedSupertonicPause;
 			cachedSupertonicTone = comboBoxTonePreset?.SelectedItem?.ToString() ?? cachedSupertonicTone;
 		}
+		else if (engine == TtsEngineKind.HiggsAudioV3)
+		{
+			cachedHiggsVoice = voice?.VoiceId ?? cachedHiggsVoice;
+			cachedHiggsSpeed = trackBarSpeed?.Value ?? cachedHiggsSpeed;
+			cachedHiggsQuality = comboBoxQuality?.SelectedItem?.ToString() ?? cachedHiggsQuality;
+			cachedHiggsVolume = trackBarVolume?.Value ?? cachedHiggsVolume;
+			cachedHiggsPause = trackBarPause?.Value ?? cachedHiggsPause;
+			cachedHiggsTone = comboBoxTonePreset?.SelectedItem?.ToString() ?? cachedHiggsTone;
+		}
 		else
 		{
 			cachedVoxVoice = voice?.VoiceId ?? cachedVoxVoice;
@@ -1474,16 +1496,23 @@ public class Form1 : Form
 	private void ApplyEngineControlState(TtsEngineKind engine)
 	{
 		bool supertonic = engine == TtsEngineKind.Supertonic;
-		SelectVoiceById(supertonic ? cachedSupertonicVoice : cachedVoxVoice);
-		trackBarSpeed.Value = Math.Max(trackBarSpeed.Minimum, Math.Min(trackBarSpeed.Maximum, supertonic ? cachedSupertonicSpeed : cachedVoxSpeed));
-		string quality = supertonic ? cachedSupertonicQuality : cachedVoxQuality;
-		comboBoxQuality.SelectedItem = comboBoxQuality.Items.Contains(quality) ? quality : (supertonic ? "균형" : "고품질");
+		bool higgs = engine == TtsEngineKind.HiggsAudioV3;
+		string voiceId = supertonic ? cachedSupertonicVoice : (higgs ? cachedHiggsVoice : cachedVoxVoice);
+		SelectVoiceById(voiceId);
+		int speed = supertonic ? cachedSupertonicSpeed : (higgs ? cachedHiggsSpeed : cachedVoxSpeed);
+		trackBarSpeed.Value = Math.Max(trackBarSpeed.Minimum, Math.Min(trackBarSpeed.Maximum, speed));
+		string quality = supertonic ? cachedSupertonicQuality : (higgs ? cachedHiggsQuality : cachedVoxQuality);
+		comboBoxQuality.SelectedItem = comboBoxQuality.Items.Contains(quality) ? quality : "고품질";
 		if (supertonic)
 		{
 			comboBoxTonePreset.SelectedItem = comboBoxTonePreset.Items.Contains(cachedSupertonicTone) ? cachedSupertonicTone : "기본";
 		}
-		int volume = supertonic ? cachedSupertonicVolume : cachedVoxVolume;
-		int pause = supertonic ? cachedSupertonicPause : cachedVoxPause;
+		else if (higgs && comboBoxTonePreset != null)
+		{
+			comboBoxTonePreset.SelectedItem = comboBoxTonePreset.Items.Contains(cachedHiggsTone) ? cachedHiggsTone : "기본";
+		}
+		int volume = supertonic ? cachedSupertonicVolume : (higgs ? cachedHiggsVolume : cachedVoxVolume);
+		int pause = supertonic ? cachedSupertonicPause : (higgs ? cachedHiggsPause : cachedVoxPause);
 		trackBarVolume.Value = Math.Max(trackBarVolume.Minimum, Math.Min(trackBarVolume.Maximum, volume));
 		trackBarPause.Value = Math.Max(trackBarPause.Minimum, Math.Min(trackBarPause.Maximum, pause));
 		UpdateVoiceEffectLabels();
@@ -4323,6 +4352,7 @@ public class Form1 : Form
 		{
 			silenceByteCount++;
 		}
+		int fadeSamples = Math.Max(1, (int)Math.Round((double)wavData.SampleRate * 0.005));
 		for (int i = 0; i < list.Count; i++)
 		{
 			WavData item = list[i];
@@ -4330,13 +4360,54 @@ public class Form1 : Form
 			{
 				throw new Exception("WAV 형식이 서로 달라 병합할 수 없습니다.");
 			}
-			if (i > 0 && silenceByteCount > 0)
+			byte[] audioData = item.Data;
+			if (i > 0)
 			{
-				list2.AddRange(new byte[silenceByteCount]);
+				if (silenceByteCount > 0)
+				{
+					list2.AddRange(new byte[silenceByteCount]);
+				}
+				if (wavData.BitsPerSample == 16 && audioData.Length >= fadeSamples * 2)
+				{
+					audioData = ApplyFadeInToAudio(audioData, fadeSamples);
+				}
 			}
-			list2.AddRange(item.Data);
+			if (i < list.Count - 1 && wavData.BitsPerSample == 16 && audioData.Length >= fadeSamples * 2)
+			{
+				audioData = ApplyFadeOutToAudio(audioData, fadeSamples);
+			}
+			list2.AddRange(audioData);
 		}
 		return BuildWav(list2.ToArray(), wavData.SampleRate, wavData.Channels, wavData.BitsPerSample);
+	}
+
+	private byte[] ApplyFadeInToAudio(byte[] audioData, int fadeSamples)
+	{
+		byte[] result = new byte[audioData.Length];
+		Array.Copy(audioData, result, audioData.Length);
+		for (int i = 0; i < fadeSamples && i * 2 + 1 < result.Length; i++)
+		{
+			double fadeAmount = (double)i / (double)fadeSamples;
+			short sample = BitConverter.ToInt16(result, i * 2);
+			short faded = (short)Math.Round((double)sample * fadeAmount);
+			BitConverter.GetBytes(faded).CopyTo(result, i * 2);
+		}
+		return result;
+	}
+
+	private byte[] ApplyFadeOutToAudio(byte[] audioData, int fadeSamples)
+	{
+		byte[] result = new byte[audioData.Length];
+		Array.Copy(audioData, result, audioData.Length);
+		int startSample = Math.Max(0, result.Length / 2 - fadeSamples);
+		for (int i = 0; i < fadeSamples && startSample * 2 + i * 2 + 1 < result.Length; i++)
+		{
+			double fadeAmount = 1.0 - ((double)i / (double)fadeSamples);
+			short sample = BitConverter.ToInt16(result, (startSample + i) * 2);
+			short faded = (short)Math.Round((double)sample * fadeAmount);
+			BitConverter.GetBytes(faded).CopyTo(result, (startSample + i) * 2);
+		}
+		return result;
 	}
 
 	private void QueueSupertonicSampleWarmup()
@@ -4627,21 +4698,54 @@ public class Form1 : Form
 		}
 		StringBuilder stringBuilder = new StringBuilder();
 		StringBuilder stringBuilder2 = new StringBuilder();
-		foreach (char c in text)
+		int i = 0;
+		while (i < text.Length)
 		{
+			char c = text[i];
 			stringBuilder2.Append(c);
-			if (c == '.' || c == '!' || c == '?' || c == '。' || c == '！' || c == '？' || c == '\n' || c == ';')
+			if (IsSentenceEnding(c))
 			{
+				int endPos = i + 1;
+				while (endPos < text.Length && IsClosingQuoteOrBracket(text[endPos]))
+				{
+					stringBuilder2.Append(text[endPos]);
+					endPos++;
+					i++;
+				}
 				AddSentenceToChunks(list, stringBuilder, stringBuilder2.ToString().Trim(), maxLength);
 				stringBuilder2.Clear();
 			}
+			i++;
 		}
-		AddSentenceToChunks(list, stringBuilder, stringBuilder2.ToString().Trim(), maxLength);
+		string remainder = stringBuilder2.ToString().Trim();
+		AddSentenceToChunks(list, stringBuilder, remainder, maxLength);
 		if (stringBuilder.Length > 0)
 		{
-			list.Add(stringBuilder.ToString().Trim());
+			string final = stringBuilder.ToString().Trim();
+			if (!string.IsNullOrWhiteSpace(final))
+			{
+				list.Add(final);
+			}
 		}
 		return list;
+	}
+
+	private bool IsSentenceEnding(char c)
+	{
+		if (c == '.' || c == '!' || c == '?' || c == '。' || c == '！' || c == '？' || c == '\n' || c == ';')
+		{
+			return true;
+		}
+		if (c == '다' || c == '요' || c == '까' || c == '네' || c == '죠' || c == '습')
+		{
+			return true;
+		}
+		return false;
+	}
+
+	private bool IsClosingQuoteOrBracket(char c)
+	{
+		return c == '"' || c == '\'' || c == ')' || c == ']' || c == (char)8221 || c == (char)8217 || c == (char)65289 || c == (char)12301 || c == (char)12303;
 	}
 
 	private void AddSentenceToChunks(List<string> chunks, StringBuilder current, string sentence, int maxLength)
@@ -4652,6 +4756,10 @@ public class Form1 : Form
 		}
 		foreach (string item in SplitLongSentence(sentence, maxLength))
 		{
+			if (string.IsNullOrWhiteSpace(item))
+			{
+				continue;
+			}
 			string text = ((current.Length == 0) ? item : (current.ToString() + " " + item));
 			if (text.Length <= maxLength)
 			{
@@ -4661,7 +4769,11 @@ public class Form1 : Form
 			}
 			if (current.Length > 0)
 			{
-				chunks.Add(current.ToString().Trim());
+				string chunk = current.ToString().Trim();
+				if (!string.IsNullOrWhiteSpace(chunk))
+				{
+					chunks.Add(chunk);
+				}
 				current.Clear();
 			}
 			current.Append(item);
@@ -4675,7 +4787,11 @@ public class Form1 : Form
 		while (text.Length > maxLength)
 		{
 			int num = FindChunkCut(text, maxLength);
-			list.Add(text.Substring(0, num).Trim());
+			string chunk = text.Substring(0, num).Trim();
+			if (!string.IsNullOrWhiteSpace(chunk))
+			{
+				list.Add(chunk);
+			}
 			text = text.Substring(num).Trim();
 		}
 		if (!string.IsNullOrWhiteSpace(text))
@@ -4708,7 +4824,11 @@ public class Form1 : Form
 
 	private byte[] ApplySpeedToPcm(byte[] pcmData, double speedFactor)
 	{
-		if (pcmData == null || pcmData.Length < 4 || Math.Abs(speedFactor - 1.0) < 0.01)
+		if (pcmData == null || pcmData.Length < 4)
+		{
+			return pcmData;
+		}
+		if (Math.Abs(speedFactor - 1.0) < 0.001)
 		{
 			return pcmData;
 		}
@@ -4722,7 +4842,20 @@ public class Form1 : Form
 		short[] array2 = TimeScalePcm(array, speedFactor);
 		byte[] array3 = new byte[array2.Length * 2];
 		Buffer.BlockCopy(array2, 0, array3, 0, array3.Length);
-		return array3;
+		return AddTailPadding(array3, 24000);
+	}
+
+	private byte[] AddTailPadding(byte[] audioData, int sampleRate)
+	{
+		if (audioData == null || audioData.Length < 4)
+		{
+			return audioData;
+		}
+		int paddingSamples = Math.Max(100, sampleRate / 20);
+		int paddingBytes = paddingSamples * 2;
+		byte[] padded = new byte[audioData.Length + paddingBytes];
+		Array.Copy(audioData, padded, audioData.Length);
+		return padded;
 	}
 
 	private short[] TimeScalePcm(short[] samples, double speedFactor)
@@ -5170,28 +5303,34 @@ public class Form1 : Form
 
 	private async Task<bool> IsHiggsHealthyAsync(int port)
 	{
-		_ = 2;
 		try
 		{
 			using HttpClientHandler handler = new HttpClientHandler
 			{
 				UseProxy = false
 			};
-			using HttpClient client = new HttpClient(handler)
+			HttpClient client = new HttpClient(handler)
 			{
 				Timeout = TimeSpan.FromSeconds(2.0)
 			};
-			using HttpResponseMessage health = await client.GetAsync($"http://127.0.0.1:{port}/health");
-			if (!health.IsSuccessStatusCode)
+			try
 			{
-				return false;
+				using HttpResponseMessage health = await client.GetAsync($"http://127.0.0.1:{port}/health");
+				if (!health.IsSuccessStatusCode)
+				{
+					return false;
+				}
+				using HttpResponseMessage models = await client.GetAsync($"http://127.0.0.1:{port}/v1/models");
+				if (!models.IsSuccessStatusCode)
+				{
+					return false;
+				}
+				return (await models.Content.ReadAsStringAsync()).Contains("higgs-audio-tts", StringComparison.OrdinalIgnoreCase);
 			}
-			using HttpResponseMessage models = await client.GetAsync($"http://127.0.0.1:{port}/v1/models");
-			if (!models.IsSuccessStatusCode)
+			finally
 			{
-				return false;
+				client?.Dispose();
 			}
-			return (await models.Content.ReadAsStringAsync()).Contains("higgs-audio-tts", StringComparison.OrdinalIgnoreCase);
 		}
 		catch
 		{
@@ -5359,52 +5498,59 @@ public class Form1 : Form
 		{
 			UseProxy = false
 		};
-		using HttpClient client = new HttpClient(handler)
+		HttpClient client = new HttpClient(handler)
 		{
 			Timeout = TimeSpan.FromMinutes(30.0)
 		};
-		for (int attempt = 0; attempt < 2; attempt++)
+		try
 		{
-			int attemptMaxTokens = ((attempt == 0) ? maxTokens : Math.Min(maxTokens * 2, 4096));
-			JObject val = JObject.FromObject((object)new
+			for (int attempt = 0; attempt < 2; attempt++)
 			{
-				model = "higgs-audio-tts",
-				input = text,
-				language = "ko",
-				seed = seed,
-				max_tokens = attemptMaxTokens,
-				temperature = temperature,
-				top_k = topK,
-				top_p = topP,
-				response_format = "wav"
-			});
-			if (!string.IsNullOrWhiteSpace(voiceReference))
-			{
-				val["voice_ref"] = voiceReference;
-				if (!string.IsNullOrWhiteSpace(referenceText))
+				int attemptMaxTokens = ((attempt == 0) ? maxTokens : Math.Min(maxTokens * 2, 4096));
+				JObject val = JObject.FromObject((object)new
 				{
-					val["reference_text"] = referenceText;
+					model = "higgs-audio-tts",
+					input = text,
+					language = "ko",
+					seed = seed,
+					max_tokens = attemptMaxTokens,
+					temperature = temperature,
+					top_k = topK,
+					top_p = topP,
+					response_format = "wav"
+				});
+				if (!string.IsNullOrWhiteSpace(voiceReference))
+				{
+					val["voice_ref"] = voiceReference;
+					if (!string.IsNullOrWhiteSpace(referenceText))
+					{
+						val["reference_text"] = referenceText;
+					}
 				}
+				using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{higgsPort}/v1/audio/speech")
+				{
+					Content = new StringContent(((object)val).ToString(), Encoding.UTF8, "application/json")
+				};
+				using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
+				if (response.IsSuccessStatusCode)
+				{
+					return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+				}
+				string text2 = await response.Content.ReadAsStringAsync(cancellationToken);
+				bool flag = text2.IndexOf("max_tokens before EOC", StringComparison.OrdinalIgnoreCase) >= 0;
+				if (attempt == 0 && flag && attemptMaxTokens < 4096)
+				{
+					AppendHiggsLog($"max_tokens before EOC detected: retry once ({attemptMaxTokens} -> {Math.Min(attemptMaxTokens * 2, 4096)})");
+					continue;
+				}
+				throw new Exception($"Higgs Audio v3 TTS error: {response.StatusCode}\n{text2}");
 			}
-			using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{higgsPort}/v1/audio/speech")
-			{
-				Content = new StringContent(((object)val).ToString(), Encoding.UTF8, "application/json")
-			};
-			using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
-			if (response.IsSuccessStatusCode)
-			{
-				return await response.Content.ReadAsByteArrayAsync(cancellationToken);
-			}
-			string text2 = await response.Content.ReadAsStringAsync(cancellationToken);
-			bool flag = text2.IndexOf("max_tokens before EOC", StringComparison.OrdinalIgnoreCase) >= 0;
-			if (attempt == 0 && flag && attemptMaxTokens < 4096)
-			{
-				AppendHiggsLog($"max_tokens before EOC detected: retry once ({attemptMaxTokens} -> {Math.Min(attemptMaxTokens * 2, 4096)})");
-				continue;
-			}
-			throw new Exception($"Higgs Audio v3 TTS error: {response.StatusCode}\n{text2}");
+			throw new InvalidOperationException("Higgs Audio v3 TTS retry limit exceeded.");
 		}
-		throw new InvalidOperationException("Higgs Audio v3 TTS retry limit exceeded.");
+		finally
+		{
+			client?.Dispose();
+		}
 	}
 
 	private async Task<(string ReferencePath, string ReferenceText)> EnsureHiggsVoiceAnchorAsync(string voiceId, int seed, string quality, CancellationToken cancellationToken)
@@ -5440,7 +5586,7 @@ public class Form1 : Form
 		}
 		labelProgressStatus.Text = "Creating Higgs voice anchor profile...";
 		byte[] array = await CallHiggsTtsApi("안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.", voiceId, seed, quality, cancellationToken, 1024);
-		ValidateHiggsOutput(array);
+		ValidateHiggsOutput(array, validateDuration: true);
 		string text = anchorPath + ".tmp";
 		File.WriteAllBytes(text, array);
 		File.Move(text, anchorPath, overwrite: true);
@@ -5448,7 +5594,7 @@ public class Form1 : Form
 		return (ReferencePath: anchorPath, ReferenceText: "안녕하세요. 현재 선택한 음성과 배속으로 만든 실제 합성 샘플입니다.");
 	}
 
-	private void ValidateHiggsOutput(byte[] wav)
+	private void ValidateHiggsOutput(byte[] wav, bool validateDuration = false)
 	{
 		if (wav == null || wav.Length < 44)
 		{
@@ -5458,6 +5604,14 @@ public class Form1 : Form
 		if (wavData.AudioFormat != 1 || wavData.BitsPerSample != 16 || wavData.Channels != 1 || wavData.SampleRate != 24000 || wavData.Data == null || wavData.Data.Length == 0)
 		{
 			throw new Exception($"Higgs Audio v3 output format incorrect: {wavData.SampleRate}Hz, {wavData.Channels}ch, {wavData.BitsPerSample}bit");
+		}
+		if (validateDuration)
+		{
+			double durationSeconds = (double)wavData.Data.Length / (double)(wavData.SampleRate * wavData.Channels * (wavData.BitsPerSample / 8));
+			if (durationSeconds < 3.0 || durationSeconds > 8.0)
+			{
+				throw new Exception($"Higgs Audio v3 anchor duration out of range: {durationSeconds:0.###}s (3-8s required)");
+			}
 		}
 	}
 
