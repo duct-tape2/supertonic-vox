@@ -11,7 +11,7 @@ v0.2.0 with Higgs Audio v3 support added. Higgs is now the primary engine; Super
 - Runs Higgs Audio v3 TTS (primary engine), Supertonic 3 (OpenRAIL-M, ONNX), and VoxCPM2 (Apache-2.0, Python sidecar) locally
 - Hardware profiling and deterministic engine recommendation
 - Korean text synthesis, playback, cancellation, atomic WAV save
-- No network calls during synthesis; models download on first run only
+- No network calls during synthesis; Supertonic 3 and VoxCPM2 models download on first run, the Higgs runtime and model are placed by hand (see docs/HIGGS_ENGINE.md)
 - File-hash verification for engine catalogs
 - No telemetry, no manuscript or audio upload, no crash reporting
 
@@ -62,9 +62,9 @@ No installation or administrator privileges required—the executable is standal
 
 | Engine | Params | Model format | Hardware | Languages | Quality notes | License |
 |--------|--------|--------------|----------|-----------|---------------|---------|
-| **Higgs Audio v3** | ~4B decoder / ~5B total | GGUF q8_0 (5.1 GB) | CUDA GPU or CPU | 102+ | Primary engine, best quality in listening tests | Boson Research + Non-Commercial, Creator Use Grant (credited use) |
-| **Supertonic 3** | ~99M | ONNX Runtime | CPU only | 31 | Lightweight, fast | OpenRAIL-M |
-| **VoxCPM2** | 2B | PyTorch (sidecar) | CPU only | 30 | Experimental | Apache-2.0 |
+| **Higgs Audio v3** | ~4B decoder / ~5B total | GGUF q8_0 (5.1 GB) | CUDA GPU (measured peak 7.8 GB VRAM on an RTX 4060 Ti) or CPU | 102 | Primary engine; sounded best in the owner's listening tests | Boson Research + Non-Commercial, Creator Use Grant (credited use) |
+| **Supertonic 3** | ~99M | ONNX Runtime | CPU only, no GPU required | 31 | Lightest option | OpenRAIL-M |
+| **VoxCPM2** | 2B | PyTorch (CPU-only sidecar in this app) | CPU (upstream cites ~8 GB VRAM on an RTX 4090 when run on GPU) | 30 | Lighter alternative | Apache-2.0 |
 
 **Quality**: The three engines are not benchmarked on a shared test set. Published metrics use different datasets. In the owner's listening tests, Higgs Audio v3 produces the most natural Korean synthesis.
 
