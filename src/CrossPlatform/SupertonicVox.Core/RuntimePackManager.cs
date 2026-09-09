@@ -696,7 +696,11 @@ public sealed class RuntimePackManager
             return null;
         }
         var deleting = path + $".deleting-{Guid.NewGuid():N}";
-        if ((attributes & FileAttributes.Directory) != 0) Directory.Move(path, deleting);
+        if ((attributes & FileAttributes.Directory) != 0)
+        {
+            AllowDirectoryRename(path);
+            Directory.Move(path, deleting);
+        }
         else File.Move(path, deleting);
         return deleting;
     }
@@ -704,8 +708,27 @@ public sealed class RuntimePackManager
     private static void RestoreDeletingPath(string deletingPath, string originalPath)
     {
         var attributes = File.GetAttributes(deletingPath);
-        if ((attributes & FileAttributes.Directory) != 0) Directory.Move(deletingPath, originalPath);
+        if ((attributes & FileAttributes.Directory) != 0)
+        {
+            Directory.Move(deletingPath, originalPath);
+            RelockDirectory(originalPath);
+        }
         else File.Move(deletingPath, originalPath);
+    }
+
+    // Activated pack roots are locked to r-x. macOS refuses to rename a directory whose own mode denies
+    // write (the GitHub macos-15 runner fails with "Access to the path ... is denied"), so lift the
+    // owner-write bit just for the move. The tree is deleted afterwards or re-locked when restored.
+    private static void AllowDirectoryRename(string directory)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        File.SetUnixFileMode(directory, File.GetUnixFileMode(directory) | UnixFileMode.UserWrite);
+    }
+
+    private static void RelockDirectory(string directory)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        File.SetUnixFileMode(directory, File.GetUnixFileMode(directory) & ~UnixFileMode.UserWrite);
     }
 
     private static async Task DeleteTreeNoFollowAsync(
